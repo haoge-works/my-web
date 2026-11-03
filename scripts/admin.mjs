@@ -1,0 +1,572 @@
+// 本地管理面板：图形化新建/编辑/删除博客文章 + 编辑站点信息
+// 仅绑定 127.0.0.1，不做任何外部暴露；数据全部是文件读写，无数据库
+// 启动：npm run admin  （即可打开 http://127.0.0.1:5174）
+import { createServer } from 'node:http'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const POSTS_DIR = path.join(ROOT, 'src', 'posts')
+const SITE_JSON = path.join(ROOT, 'src', 'site.json')
+const HOST = '127.0.0.1'
+const PORT = Number(process.env.ADMIN_PORT || 5174)
+
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
+
+/* ---------- frontmatter 生成与解析（与 src/posts.ts 的解析规则保持一致） ---------- */
+
+function yamlString(value) {
+  return '"' + String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'
+}
+
+function yamlList(arr) {
+  return '[' + arr.map(v => yamlString(v)).join(', ') + ']'
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+async function exists(file) {
+  try {
+    await fs.access(file)
+    return true
+  }
+  catch {
+    return false
+  }
+}
+
+function frontmatter(meta) {
+  const lines = ['---']
+  lines.push('title: ' + yamlString(meta.title ?? '未命名'))
+  lines.push('date: ' + yamlString(meta.date ?? today()))
+  lines.push('tags: ' + yamlList(meta.tags ?? []))
+  if (meta.summary)
+    lines.push('summary: ' + yamlString(meta.summary))
+  if (meta.source)
+    lines.push('source: ' + yamlString(meta.source))
+  lines.push('---', '')
+  return lines.join('\n')
+}
+
+function buildMarkdown(meta, content) {
+  return frontmatter(meta) + String(content ?? '')
+}
+
+/** 解析顺序：整个 frontmatter 块剥离后，逐行拆 key: value；列表值形如 ["a", "b"] */
+function parseFrontmatter(raw) {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(raw)
+  const meta = {}
+  let body = raw.replace(/^\uFEFF/, '')
+  if (match) {
+    body = body.slice(match[0].length)
+    for (const line of match[1].split(/\r?\n/)) {
+      const m = /^([\w-]+)\s*:\s*(.*)$/.exec(line.trim())
+      if (!m)
+        continue
+      const key = m[1]
+      const value = m[2].trim()
+      if (value.startsWith('[') && value.endsWith(']')) {
+        meta[key] = value
+          .slice(1, -1)
+          .split(',')
+          .map(s => s.trim().replace(/^["']|["']$/g, ''))
+          .filter(Boolean)
+      }
+      else {
+        meta[key] = value.replace(/^["']|["']$/g, '')
+      }
+    }
+  }
+  return { meta, body }
+}
+
+function toTags(value) {
+  if (Array.isArray(value))
+    return value.map(String)
+  if (typeof value === 'string' && value.trim())
+    return value.split(/[,，]/).map(s => s.trim()).filter(Boolean)
+  return []
+}
+
+/* ---------- 文件读写 ---------- */
+
+function slugToPath(slug) {
+  if (!SLUG_RE.test(slug))
+    throw httpError(400, 'slug 只允许小写字母、数字和连字符')
+  const file = path.join(POSTS_DIR, slug + '.md')
+  if (path.dirname(file) !== POSTS_DIR)
+    throw httpError(400, '非法 slug')
+  return file
+}
+
+function autoSlug() {
+  const d = new Date()
+  const p = n => String(n).padStart(2, '0')
+  return 'post-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes())
+}
+
+async function listPosts() {
+  const names = (await fs.readdir(POSTS_DIR)).filter(f => f.endsWith('.md')).sort().reverse()
+  const posts = []
+  for (const name of names) {
+    const raw = await fs.readFile(path.join(POSTS_DIR, name), 'utf8')
+    const { meta } = parseFrontmatter(raw)
+    posts.push({
+      slug: name.replace(/\.md$/, ''),
+      title: String(meta.title ?? name),
+      date: String(meta.date ?? ''),
+      tags: toTags(meta.tags),
+      summary: String(meta.summary ?? ''),
+      source: String(meta.source ?? ''),
+    })
+  }
+  return posts
+}
+
+function normalizePostInput(body) {
+  const title = String(body.title ?? '').trim()
+  if (!title)
+    throw httpError(400, '标题不能为空')
+  const tags = toTags(body.tags)
+  return {
+    title,
+    date: /^\d{4}-\d{2}-\d{2}$/.test(String(body.date ?? '')) ? String(body.date) : today(),
+    tags,
+    summary: typeof body.summary === 'string' ? body.summary.trim() : '',
+    source: typeof body.source === 'string' ? body.source.trim() : '',
+    content: typeof body.content === 'string' ? body.content : '',
+  }
+}
+
+function normalizeSite(body) {
+  const links = Array.isArray(body.links)
+    ? body.links
+        .map(l => ({ label: String(l?.label ?? '').trim(), url: String(l?.url ?? '').trim() }))
+        .filter(l => l.label && l.url)
+    : []
+  const about = Array.isArray(body.about)
+    ? body.about.map(s => String(s).trim()).filter(Boolean)
+    : []
+  const name = String(body.name ?? '').trim()
+  const intro = String(body.intro ?? '').trim()
+  if (!name)
+    throw httpError(400, '站点名称不能为空')
+  return { name, intro, about, links }
+}
+
+/* ---------- HTTP 基础设施 ---------- */
+
+function httpError(status, message) {
+  const err = new Error(message)
+  err.status = status
+  return err
+}
+
+function sendJson(res, status, data) {
+  res.statusCode = status
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.end(JSON.stringify(data))
+}
+
+async function readJsonBody(req) {
+  const chunks = []
+  for await (const chunk of req)
+    chunks.push(chunk)
+  const raw = Buffer.concat(chunks).toString('utf8')
+  if (!raw)
+    return {}
+  try {
+    return JSON.parse(raw)
+  }
+  catch {
+    throw httpError(400, '请求体不是合法 JSON')
+  }
+}
+
+/* ---------- 面板页面（零依赖单页，原生 fetch） ---------- */
+
+const HTML = `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>本地管理面板 · my-web</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #fafaf9; color: #1c1c1a;
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 15px; line-height: 1.7;
+  }
+  header { border-bottom: 1px solid #e6e6e2; padding: 12px 24px; display: flex; gap: 20px; align-items: center; }
+  header strong { font-size: 1.05em; }
+  nav button { appearance: none; border: none; background: none; padding: 6px 12px; cursor: pointer; color: #6f6f6a; border-radius: 6px; font-size: 0.95em; }
+  nav button:hover { color: #1c1c1a; }
+  nav button.on { background: #1c1c1a; color: #fafaf9; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 20px 60px; }
+  h2 { font-size: 1.15em; margin: 18px 0 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; border-bottom: 1px solid #e6e6e2; padding: 8px 6px; vertical-align: top; }
+  th { font-weight: 600; color: #6f6f6a; font-size: 0.88em; }
+  .muted { color: #6f6f6a; font-size: 0.85em; }
+  label { display: block; margin: 12px 0 4px; font-size: 0.9em; color: #6f6f6a; }
+  input[type=text], textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid #e6e6e2; border-radius: 6px;
+    background: #fff; color: inherit; font: inherit;
+  }
+  textarea { min-height: 160px; resize: vertical; }
+  textarea.code { font-family: Consolas, monospace; font-size: 13.5px; min-height: 320px; }
+  .row { display: flex; gap: 12px; }
+  .row > * { flex: 1; }
+  button.act {
+    appearance: none; border: 1px solid #1c1c1a; background: #1c1c1a; color: #fafaf9;
+    padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9em; margin-top: 14px;
+  }
+  button.act.ghost { background: #fafaf9; color: #1c1c1a; }
+  button.act.ghost:hover { border-color: #6f6f6a; }
+  button.act:hover { opacity: 0.88; }
+  button.mini { appearance: none; border: 1px solid #e6e6e2; background: #fff; color: #1c1c1a; border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 0.82em; }
+  button.mini:hover { border-color: #6f6f6a; }
+  .tip { background: #f4f4f2; border: 1px solid #e6e6e2; border-radius: 8px; padding: 8px 12px; font-size: 0.85em; color: #6f6f6a; margin: 12px 0; }
+  .err { color: #b3261e; font-size: 0.9em; margin-top: 10px; }
+  .linkrow { display: flex; gap: 8px; margin: 6px 0; }
+  .linkrow input { flex: 1; }
+  .linkrow button { flex: 0 0 auto; }
+</style>
+</head>
+<body>
+<header>
+  <strong>my-web 本地管理面板</strong>
+  <nav>
+    <button id="tab-posts" class="on" onclick="showTab('posts')">文章</button>
+    <button id="tab-site" onclick="showTab('site')">站点信息</button>
+  </nav>
+  <span style="margin-left:auto" class="muted">仅本机 127.0.0.1 可访问 · 配合 npm run dev 使用</span>
+</header>
+<main>
+
+  <section id="view-posts">
+    <div id="post-list">
+      <h2>文章列表 <button class="mini" onclick="newPost()">＋ 新建文章</button></h2>
+      <div class="tip">新建/修改保存后，在 dev 站点（localhost:5173）刷新即可看到；新增文件需要手动刷新一次。</div>
+      <div id="post-rows">加载中…</div>
+    </div>
+
+    <div id="post-editor" style="display:none">
+      <h2 id="editor-title">新建文章</h2>
+      <label>标题 *</label><input type="text" id="f-title" />
+      <div class="row">
+        <div><label>日期</label><input type="text" id="f-date" placeholder="YYYY-MM-DD，留空为今天" /></div>
+        <div><label>URL slug（小写英文/数字/连字符，留空自动生成）</label><input type="text" id="f-slug" /></div>
+      </div>
+      <div class="row">
+        <div><label>标签（逗号分隔）</label><input type="text" id="f-tags" placeholder="技术, 教程" /></div>
+        <div><label>转载原文 URL（原创留空）</label><input type="text" id="f-source" /></div>
+      </div>
+      <label>摘要（列表页显示，可留空）</label><input type="text" id="f-summary" />
+      <label>正文（Markdown）</label><textarea id="f-content" class="code"></textarea>
+      <p id="post-error" class="err" style="display:none"></p>
+      <button class="act" onclick="savePost()">保存</button>
+      <button class="act ghost" onclick="closeEditor()">返回列表</button>
+      <span class="muted" id="edit-slug"></span>
+    </div>
+  </section>
+
+  <section id="view-site" style="display:none">
+    <h2>站点信息</h2>
+    <div class="tip">对应 src/site.json —— 首页大标题、一句话介绍、关于页、页脚署名都会同步更新。</div>
+    <label>站点名 / 你的名字 *</label><input type="text" id="s-name" />
+    <label>一句话介绍</label><input type="text" id="s-intro" />
+    <label>关于页介绍（每行一段）</label><textarea id="s-about" style="min-height:100px"></textarea>
+    <label>社交 / 联系链接</label>
+    <div id="s-links"></div>
+    <button class="mini" onclick="addLinkRow('','')">＋ 添加一条链接</button>
+    <p id="site-error" class="err" style="display:none"></p>
+    <br />
+    <button class="act" onclick="saveSite()">保存站点信息</button>
+  </section>
+
+</main>
+
+<script>
+var currentSlug = null
+
+function showTab(name) {
+  document.getElementById('view-posts').style.display = name === 'posts' ? '' : 'none'
+  document.getElementById('view-site').style.display = name === 'site' ? '' : 'none'
+  document.getElementById('tab-posts').className = name === 'posts' ? 'on' : ''
+  document.getElementById('tab-site').className = name === 'site' ? 'on' : ''
+  if (name === 'posts') refreshPosts()
+  if (name === 'site') loadSite()
+}
+
+function esc(s) {
+  var d = document.createElement('div')
+  d.textContent = s == null ? '' : String(s)
+  return d.innerHTML
+}
+
+/* ---------- 文章 ---------- */
+
+function refreshPosts() {
+  document.getElementById('post-editor').style.display = 'none'
+  document.getElementById('post-list').style.display = ''
+  fetch('/api/posts').then(function (r) { return r.json() }).then(function (posts) {
+    if (!posts.length) {
+      document.getElementById('post-rows').innerHTML = '<p class="muted">还没有文章，点右上角「＋ 新建文章」。</p>'
+      return
+    }
+    var html = '<table><tr><th>标题</th><th>日期</th><th>标签</th><th>操作</th></tr>'
+    for (var i = 0; i < posts.length; i++) {
+      var p = posts[i]
+      var tagsHtml = ''
+      for (var j = 0; j < p.tags.length; j++) tagsHtml += '#' + esc(p.tags[j]) + ' '
+      if (p.source) tagsHtml += '<span class="muted">转载</span>'
+      html += '<tr><td>' + esc(p.title) + '<div class="muted">/' + esc(p.slug) + '</div></td>'
+        + '<td class="muted">' + esc(p.date) + '</td>'
+        + '<td class="muted">' + tagsHtml + '</td>'
+        + '<td style="white-space:nowrap">'
+        + '<button class="mini" onclick="openPost(\\'' + esc(p.slug) + '\\')">编辑</button> '
+        + '<button class="mini" onclick="removePost(\\'' + esc(p.slug) + '\\')">删除</button>'
+        + '</td></tr>'
+    }
+    html += '</table>'
+    document.getElementById('post-rows').innerHTML = html
+  })
+}
+
+function showEditor(mode, slug) {
+  document.getElementById('post-list').style.display = 'none'
+  document.getElementById('post-editor').style.display = ''
+  document.getElementById('editor-title').textContent = mode === 'new' ? '新建文章' : '编辑文章'
+  document.getElementById('edit-slug').textContent = slug ? 'slug: ' + slug : ''
+  document.getElementById('post-error').style.display = 'none'
+  currentSlug = slug || null
+}
+
+function newPost() {
+  showEditor('new', null)
+  document.getElementById('f-title').value = ''
+  document.getElementById('f-date').value = ''
+  document.getElementById('f-slug').value = ''
+  document.getElementById('f-tags').value = ''
+  document.getElementById('f-source').value = ''
+  document.getElementById('f-summary').value = ''
+  document.getElementById('f-content').value = ''
+}
+
+function openPost(slug) {
+  fetch('/api/posts/' + encodeURIComponent(slug))
+    .then(function (r) { return r.json() })
+    .then(function (p) {
+      showEditor('edit', p.slug)
+      document.getElementById('f-title').value = p.title
+      document.getElementById('f-date').value = p.date
+      document.getElementById('f-slug').value = p.slug
+      document.getElementById('f-tags').value = (p.tags || []).join(', ')
+      document.getElementById('f-source').value = p.source || ''
+      document.getElementById('f-summary').value = p.summary || ''
+      document.getElementById('f-content').value = p.content || ''
+    })
+}
+
+function postError(msg) {
+  var el = document.getElementById('post-error')
+  el.textContent = msg
+  el.style.display = ''
+}
+
+function gatherPost() {
+  return {
+    title: document.getElementById('f-title').value.trim(),
+    date: document.getElementById('f-date').value.trim(),
+    slug: document.getElementById('f-slug').value.trim(),
+    tags: document.getElementById('f-tags').value.trim(),
+    source: document.getElementById('f-source').value.trim(),
+    summary: document.getElementById('f-summary').value.trim(),
+    content: document.getElementById('f-content').value,
+  }
+}
+
+function savePost() {
+  var body = gatherPost()
+  var req = currentSlug
+    ? fetch('/api/posts/' + encodeURIComponent(currentSlug), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    : fetch('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  req.then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j } }) })
+    .then(function (x) {
+      if (x.ok) { refreshPosts(); return }
+      postError(x.j && x.j.error ? x.j.error : '保存失败')
+    })
+}
+
+function removePost(slug) {
+  if (!confirm('确定删除文章「' + slug + '」？此操作直接删文件，不可撤销。')) return
+  fetch('/api/posts/' + encodeURIComponent(slug), { method: 'DELETE' })
+    .then(function () { refreshPosts() })
+}
+
+function closeEditor() { refreshPosts() }
+
+/* ---------- 站点信息 ---------- */
+
+function loadSite() {
+  fetch('/api/site').then(function (r) { return r.json() }).then(function (s) {
+    document.getElementById('s-name').value = s.name || ''
+    document.getElementById('s-intro').value = s.intro || ''
+    document.getElementById('s-about').value = (s.about || []).join('\\n')
+    var box = document.getElementById('s-links')
+    box.innerHTML = ''
+    var links = s.links && s.links.length ? s.links : []
+    for (var i = 0; i < links.length; i++) addLinkRow(links[i].label, links[i].url)
+    if (!links.length) addLinkRow('', '')
+    document.getElementById('site-error').style.display = 'none'
+  })
+}
+
+function addLinkRow(label, url) {
+  var div = document.createElement('div')
+  div.className = 'linkrow'
+  var li = document.createElement('input')
+  li.type = 'text'; li.placeholder = '标签，如 GitHub'; li.value = label || ''
+  var ul = document.createElement('input')
+  ul.type = 'text'; ul.placeholder = 'URL，如 https://github.com/xxx'; ul.value = url || ''
+  var rm = document.createElement('button')
+  rm.className = 'mini'; rm.textContent = '×'
+  rm.onclick = function () { div.remove() }
+  div.appendChild(li); div.appendChild(ul); div.appendChild(rm)
+  document.getElementById('s-links').appendChild(div)
+}
+
+function saveSite() {
+  var about = document.getElementById('s-about').value.split(/\\n/).map(function (s) { return s.trim() }).filter(Boolean)
+  var links = []
+  var rows = document.querySelectorAll('#s-links .linkrow')
+  for (var i = 0; i < rows.length; i++) {
+    var inputs = rows[i].querySelectorAll('input')
+    links.push({ label: inputs[0].value.trim(), url: inputs[1].value.trim() })
+  }
+  fetch('/api/site', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+    name: document.getElementById('s-name').value.trim(),
+    intro: document.getElementById('s-intro').value.trim(),
+    about: about,
+    links: links,
+  }) }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j } }) })
+    .then(function (x) {
+      if (x.ok) { loadSite(); return }
+      var el = document.getElementById('site-error')
+      el.textContent = x.j && x.j.error ? x.j.error : '保存失败'
+      el.style.display = ''
+    })
+}
+
+refreshPosts()
+</script>
+</body>
+</html>
+`
+
+/* ---------- 服务器与路由 ---------- */
+
+const server = createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url || '/', 'http://127.0.0.1:' + PORT)
+    const parts = url.pathname.split('/').filter(Boolean)
+    const method = req.method || 'GET'
+
+    if (method === 'GET' && url.pathname === '/') {
+      res.statusCode = 200
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      res.end(HTML)
+      return
+    }
+
+    if (parts[0] === 'api' && parts[1] === 'posts') {
+      // /api/posts
+      if (parts.length === 2) {
+        if (method === 'GET') {
+          sendJson(res, 200, await listPosts())
+          return
+        }
+        if (method === 'POST') {
+          const body = await readJsonBody(req)
+          const meta = normalizePostInput(body)
+          const slug = SLUG_RE.test(String(body.slug ?? '').trim()) ? String(body.slug).trim().toLowerCase() : autoSlug()
+          const file = slugToPath(slug)
+          if (await exists(file))
+            throw httpError(409, 'slug ' + slug + ' 已存在，请换一个')
+          await fs.writeFile(file, buildMarkdown(meta, meta.content), 'utf8')
+          sendJson(res, 201, { slug, saved: true })
+          return
+        }
+      }
+      // /api/posts/<slug>
+      if (parts.length === 3) {
+        const slug = decodeURIComponent(parts[2])
+        const file = slugToPath(slug)
+        if (method === 'GET') {
+          const raw = await fs.readFile(file, 'utf8')
+          const { meta, body } = parseFrontmatter(raw)
+          sendJson(res, 200, {
+            slug,
+            title: String(meta.title ?? slug),
+            date: String(meta.date ?? ''),
+            tags: toTags(meta.tags),
+            summary: String(meta.summary ?? ''),
+            source: String(meta.source ?? ''),
+            content: body,
+          })
+          return
+        }
+        if (method === 'PUT') {
+          const body = await readJsonBody(req)
+          const meta = normalizePostInput(body)
+          if (SLUG_RE.test(String(body.slug ?? '').trim()) && body.slug.trim().toLowerCase() !== slug) {
+            // 改名场景：写新文件，删旧文件
+            const newFile = slugToPath(String(body.slug).trim().toLowerCase())
+            if (await exists(newFile))
+              throw httpError(409, 'slug ' + body.slug.trim() + ' 已存在')
+            await fs.writeFile(newFile, buildMarkdown(meta, meta.content), 'utf8')
+            await fs.rm(file)
+          }
+          else {
+            await fs.writeFile(file, buildMarkdown(meta, meta.content), 'utf8')
+          }
+          sendJson(res, 200, { slug: body.slug ? String(body.slug).trim().toLowerCase() : slug, saved: true })
+          return
+        }
+        if (method === 'DELETE') {
+          await fs.rm(file)
+          sendJson(res, 200, { deleted: true })
+          return
+        }
+      }
+    }
+
+    if (parts[0] === 'api' && parts[1] === 'site' && parts.length === 2) {
+      if (method === 'GET') {
+        sendJson(res, 200, JSON.parse(await fs.readFile(SITE_JSON, 'utf8')))
+        return
+      }
+      if (method === 'PUT') {
+        const site = normalizeSite(await readJsonBody(req))
+        await fs.writeFile(SITE_JSON, JSON.stringify(site, null, 2) + '\n', 'utf8')
+        sendJson(res, 200, { saved: true })
+        return
+      }
+    }
+    sendJson(res, 404, { error: 'not found' })
+  }
+  catch (err) {
+    sendJson(res, err.status ?? 500, { error: err.message || '服务器内部错误' })
+  }
+})
+
+server.listen(PORT, HOST, () => {
+  console.log('管理面板已启动：http://127.0.0.1:' + PORT)
+  console.log('（仅本机可访问；配合 npm run dev 使用）')
+})

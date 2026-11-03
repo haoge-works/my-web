@@ -14,6 +14,7 @@ const older = computed(() => (index.value >= 0 && index.value < posts.length - 1
 <template>
   <article v-if="post">
     <header class="post-header">
+      <p class="post-back"><RouterLink to="/blog">← 返回文章列表</RouterLink></p>
       <h1 class="post-title">{{ post.title }}</h1>
       <div class="post-meta">
         <time :datetime="post.date">{{ post.date }}</time>

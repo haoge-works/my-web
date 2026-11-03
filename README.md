@@ -10,6 +10,7 @@
 ```bash
 npm install      # 安装依赖
 npm run dev      # 本地开发，默认 http://localhost:5173
+npm run admin    # 本地管理面板 http://127.0.0.1:5174（图形化新建/编辑/删除文章与站点信息）
 npm run build    # 构建静态文件到 dist/
 npm run preview  # 本地预览构建产物
 npm run typecheck
@@ -38,7 +39,7 @@ source: https://原文链接   （转载文章才写；原创不要写）
 
 ## 怎么改个人信息
 
-编辑 `src/site.ts`，替换里面的占位内容即可（名字、介绍、联系方式、关于页文字）。
+编辑 `src/site.json`（或用 `npm run admin` 管理面板的「站点信息」表单），改名、介绍、联系、关于页文字。`src/site.ts` 只做类型导出，不要手工改数据。
 
 ## 深色模式
 
@@ -58,7 +59,7 @@ source: https://原文链接   （转载文章才写；原创不要写）
 ```
 src/
 ├─ posts.ts          # 博客数据层：收集 md、解析 frontmatter、按日期排序
-├─ site.ts           # 站点信息（占位内容，需要你自己填）
+├─ site.json          # 站点信息数据源（管理面板可编辑；site.ts 只做类型导出）
 ├─ router/index.ts   # 路由
 ├─ composables/useTheme.ts  # 深色模式逻辑
 ├─ styles/main.css   # 全局样式 + 设计变量

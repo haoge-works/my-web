@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "admin": "node scripts/admin.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit"

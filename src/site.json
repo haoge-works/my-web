@@ -1,0 +1,12 @@
+{
+  "name": "你的名字",
+  "intro": "一名喜欢折腾技术的人，在这里记录想法、文章与生活。",
+  "about": [
+    "你是谁、做什么、喜欢什么。",
+    "把这段替换成自己的介绍即可。"
+  ],
+  "links": [
+    { "label": "GitHub", "url": "https://github.com/yourname" },
+    { "label": "邮箱", "url": "mailto:you@example.com" }
+  ]
+}
