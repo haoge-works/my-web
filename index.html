@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="个人主页与博客" />
+    <title>我的小站</title>
+    <script>
+      // 在页面渲染前应用主题，避免深色模式闪烁
+      ;(function () {
+        try {
+          var mode = localStorage.getItem('theme') || 'auto'
+          var dark = false
+          if (mode === 'dark') dark = true
+          else if (mode === 'auto') dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          if (dark) document.documentElement.classList.add('dark')
+        } catch (e) {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,545 @@
+/* ============================================================
+   全局样式 · 极简黑白灰
+   主题变量：浅色为默认，`.dark` 下覆盖为深色
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+  --bg: #fafaf9;
+  --fg: #1c1c1a;
+  --muted: #6f6f6a;
+  --border: #e6e6e2;
+  --card: #ffffff;
+  --code-bg: #f4f4f2;
+  --hover: #111110;
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: #141413;
+  --fg: #e8e8e5;
+  --muted: #9a9a94;
+  --border: #2c2c2a;
+  --card: #1c1c1b;
+  --code-bg: #232322;
+  --hover: #ffffff;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.container {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.site {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-main {
+  flex: 1;
+  padding-top: 40px;
+  padding-bottom: 64px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+a:hover {
+  color: var(--hover);
+}
+
+::selection {
+  background: rgba(28, 28, 26, 0.12);
+}
+
+.dark ::selection {
+  background: rgba(232, 232, 229, 0.2);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- 头部导航 ---------- */
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 60px;
+}
+
+.brand {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-right: auto;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-link {
+  padding: 4px 10px;
+  color: var(--muted);
+  border-radius: 6px;
+}
+
+.nav-link:hover {
+  color: var(--fg);
+}
+
+.nav-link--active {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* ---------- 主题切换按钮 ---------- */
+
+.theme-toggle {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--muted);
+  transform: scale(1.06);
+}
+
+/* ---------- 首页 ---------- */
+
+.hero {
+  padding: 48px 0 32px;
+}
+
+.hero-title {
+  font-size: 2.2em;
+  line-height: 1.3;
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.hero-intro {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 1.05em;
+}
+
+.hero-links {
+  display: flex;
+  gap: 16px;
+}
+
+.hero-links a {
+  font-size: 0.92em;
+  color: var(--muted);
+  border-bottom: 1px solid transparent;
+}
+
+.hero-links a:hover {
+  color: var(--fg);
+  border-bottom-color: var(--fg);
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 32px 0 4px;
+}
+
+.section-title {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 32px 0 8px;
+  letter-spacing: 0.03em;
+}
+
+.more-link {
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+.more-link:hover {
+  color: var(--fg);
+}
+
+/* ---------- 文章列表 ---------- */
+
+.article-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.article-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.article-link {
+  display: block;
+}
+
+.article-title {
+  font-size: 1.02em;
+  font-weight: 500;
+}
+
+.article-link:hover .article-title {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+
+.article-summary {
+  margin: 4px 0 0;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+.article-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 2px;
+  font-size: 0.82em;
+  color: var(--muted);
+}
+
+.tag {
+  color: var(--muted);
+}
+
+.tag:hover {
+  color: var(--fg);
+}
+
+.tag + .tag {
+  margin-left: 8px;
+}
+
+/* ---------- 博客列表页 ---------- */
+
+.page-head {
+  margin-bottom: 8px;
+}
+
+.page-title {
+  font-size: 1.6em;
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+
+.page-subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92em;
+}
+
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 12px;
+}
+
+.tag-filter-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.82em;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.tag-filter-btn:hover {
+  color: var(--fg);
+  border-color: var(--muted);
+}
+
+.tag-filter-btn--active {
+  color: var(--bg);
+  background: var(--fg);
+  border-color: var(--fg);
+}
+
+.empty-hint {
+  color: var(--muted);
+  margin-top: 24px;
+}
+
+/* ---------- 文章正文 ---------- */
+
+.post-header {
+  margin-bottom: 32px;
+}
+
+.post-title {
+  font-size: 1.7em;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.post-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.88em;
+}
+
+.markdown-body {
+  font-size: 1em;
+}
+
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 1.8em 0 0.6em;
+}
+
+.markdown-body h2 {
+  font-size: 1.25em;
+}
+
+.markdown-body h3 {
+  font-size: 1.1em;
+}
+
+.markdown-body p {
+  margin: 0.9em 0;
+}
+
+.markdown-body blockquote {
+  margin: 1.2em 0;
+  padding: 0.2em 1em;
+  border-left: 2px solid var(--muted);
+  color: var(--muted);
+}
+
+.markdown-body blockquote p {
+  margin: 0.5em 0;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.6em;
+  margin: 0.8em 0;
+}
+
+.markdown-body li {
+  margin: 0.3em 0;
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-size: 0.92em;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.markdown-body th {
+  font-weight: 600;
+  background: var(--card);
+}
+
+.markdown-body code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 0.88em;
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+}
+
+.markdown-body pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  line-height: 1.6;
+  font-size: 0.88em;
+}
+
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* Shiki 双主题：深色模式启用 --shiki-dark 变量 */
+.dark .markdown-body pre,
+.dark .markdown-body pre * {
+  background-color: var(--shiki-dark-bg) !important;
+  color: var(--shiki-dark) !important;
+}
+
+.markdown-body a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+/* ---------- 文章页导航 ---------- */
+
+.post-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.post-nav-link {
+  max-width: 48%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.post-nav-link--right {
+  text-align: right;
+}
+
+.post-nav-label {
+  font-size: 0.8em;
+  color: var(--muted);
+}
+
+.post-nav-title {
+  font-size: 0.92em;
+  font-weight: 500;
+}
+
+.back-link {
+  margin-top: 24px;
+  font-size: 0.88em;
+  color: var(--muted);
+}
+
+/* ---------- 关于页 ---------- */
+
+.about-paragraph {
+  margin: 0.9em 0;
+}
+
+.about-links {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+
+.about-links li {
+  margin: 6px 0;
+  font-size: 0.95em;
+}
+
+.about-links a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- 页脚 ---------- */
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 20px 0 28px;
+  color: var(--muted);
+  font-size: 0.82em;
+}
+
+/* ---------- 移动端 ---------- */
+
+@media (max-width: 560px) {
+  html {
+    font-size: 15px;
+  }
+
+  .hero {
+    padding: 32px 0 24px;
+  }
+
+  .hero-title {
+    font-size: 1.8em;
+  }
+
+  .header-inner {
+    gap: 10px;
+  }
+
+  .nav-link {
+    padding: 4px 6px;
+  }
+
+  .post-title {
+    font-size: 1.4em;
+  }
+}
