@@ -2,3 +2,6 @@ node_modules
 dist
 *.local
 .DS_Store
+
+# 博客文章内容不入仓库（本地写作，见 root README 部署章节说明）
+src/posts/*.md

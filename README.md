@@ -3,6 +3,8 @@
 一个极简风格的个人网站：主页展示自己，附带 Markdown 博客。
 技术栈：**Vue 3 + TypeScript + Vite + Vue Router + unplugin-vue-markdown + Shiki**。
 
+> **注意**：`src/posts/*.md`（文章内容）已加入 `.gitignore`，**不入 git 仓库**。文章只保存在本地，换机器/重新克隆后文章为空，需自行拷贝；如以后改用「GitHub Pages 自动从仓库构建部署」的方案，必须把文章文件重新纳入 git 跟踪。
+
 ## 快速开始
 
 ```bash

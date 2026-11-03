@@ -29,6 +29,7 @@ npm run preview
 
 ## 环境与 git
 
+- **`src/posts/*.md`（文章）不入 git**（用户要求：仓库只放代码）。文章只存在于本地，`git status` 看不到它们属正常；换克隆环境会失去全部文章，部署类任务前先确认。
 - 写作规范（贴图、链接、转载）已沉淀在 `docs/images.md` 和 `docs/links.md`，写文章相关任务先读这两份。
 
 - 推 GitHub（HTTPS）经常被网络重置 `Connection was reset`，**多重试几次通常能通**；本仓库 git identity 是本地配置的 `haoge-works@users.noreply.github.com`，`core.sshCommand` 指向 `D:\Git\usr\bin\ssh.exe`（Windows 自带 ssh 太旧，连不上 `ssh.github.com:443` 的新 KEX）。
