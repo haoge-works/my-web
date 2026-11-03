@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const POSTS_DIR = path.join(ROOT, 'src', 'posts')
 const SITE_JSON = path.join(ROOT, 'src', 'site.json')
+const ORDER_JSON = path.join(ROOT, 'src', 'post-order.json')
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.ADMIN_PORT || 5174)
 
@@ -108,6 +109,16 @@ function autoSlug() {
   return 'post-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes())
 }
 
+async function readOrder() {
+  try {
+    const raw = JSON.parse(await fs.readFile(ORDER_JSON, 'utf8'))
+    return Array.isArray(raw) ? raw.map(String) : []
+  }
+  catch {
+    return []
+  }
+}
+
 async function listPosts() {
   const names = (await fs.readdir(POSTS_DIR)).filter(f => f.endsWith('.md')).sort().reverse()
   const posts = []
@@ -123,7 +134,19 @@ async function listPosts() {
       source: String(meta.source ?? ''),
     })
   }
-  return posts
+  // 与 src/posts.ts 的排序规则保持一致：清单顺序优先，未登记按日期倒序
+  const orderIndex = new Map((await readOrder()).map((slug, i) => [slug, i]))
+  return posts.sort((a, b) => {
+    const ia = orderIndex.has(a.slug)
+    const ib = orderIndex.has(b.slug)
+    if (ia && ib)
+      return orderIndex.get(a.slug) - orderIndex.get(b.slug)
+    if (ia)
+      return -1
+    if (ib)
+      return 1
+    return String(b.date).localeCompare(String(a.date))
+  })
 }
 
 function normalizePostInput(body) {
@@ -252,7 +275,7 @@ const HTML = `<!doctype html>
   <section id="view-posts">
     <div id="post-list">
       <h2>文章列表 <button class="mini" onclick="newPost()">＋ 新建文章</button></h2>
-      <div class="tip">新建/修改保存后，在 dev 站点（localhost:5173）刷新即可看到；新增文件需要手动刷新一次。</div>
+      <div class="tip">新建/修改保存后，在 dev 站点（localhost:5173）刷新即可看到；新增文件需要手动刷新一次。▲▼ 按钮手动排序：清单里的文章排最前，未登记文章在后按日期倒序。</div>
       <div id="post-rows">加载中…</div>
     </div>
 
@@ -312,21 +335,28 @@ function esc(s) {
 
 /* ---------- 文章 ---------- */
 
+var postsRef = [] // 当前排序后的列表（供上下移动用）
+
 function refreshPosts() {
   document.getElementById('post-editor').style.display = 'none'
   document.getElementById('post-list').style.display = ''
   fetch('/api/posts').then(function (r) { return r.json() }).then(function (posts) {
+    postsRef = posts
     if (!posts.length) {
       document.getElementById('post-rows').innerHTML = '<p class="muted">还没有文章，点右上角「＋ 新建文章」。</p>'
       return
     }
-    var html = '<table><tr><th>标题</th><th>日期</th><th>标签</th><th>操作</th></tr>'
+    var html = '<table><tr><th>顺序</th><th>标题</th><th>日期</th><th>标签</th><th>操作</th></tr>'
     for (var i = 0; i < posts.length; i++) {
       var p = posts[i]
       var tagsHtml = ''
       for (var j = 0; j < p.tags.length; j++) tagsHtml += '#' + esc(p.tags[j]) + ' '
       if (p.source) tagsHtml += '<span class="muted">转载</span>'
-      html += '<tr><td>' + esc(p.title) + '<div class="muted">/' + esc(p.slug) + '</div></td>'
+      html += '<tr><td style="white-space:nowrap">'
+        + '<button class="mini" onclick="movePost(' + i + ', -1)">▲</button> '
+        + '<button class="mini" onclick="movePost(' + i + ', 1)">▼</button>'
+        + '</td>'
+        + '<td>' + esc(p.title) + '<div class="muted">/' + esc(p.slug) + '</div></td>'
         + '<td class="muted">' + esc(p.date) + '</td>'
         + '<td class="muted">' + tagsHtml + '</td>'
         + '<td style="white-space:nowrap">'
@@ -337,6 +367,22 @@ function refreshPosts() {
     html += '</table>'
     document.getElementById('post-rows').innerHTML = html
   })
+}
+
+function movePost(index, dir) {
+  var target = index + dir
+  if (target < 0 || target >= postsRef.length)
+    return
+  var swapped = postsRef.slice()
+  var tmp = swapped[index]
+  swapped[index] = swapped[target]
+  swapped[target] = tmp
+  fetch('/api/post-order', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: swapped.map(function (p) { return p.slug }) }) })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j } }) })
+    .then(function (x) {
+      // 成功与否都重新拉列表，保证与磁盘状态一致
+      refreshPosts()
+    })
 }
 
 function showEditor(mode, slug) {
@@ -544,6 +590,30 @@ const server = createServer(async (req, res) => {
           sendJson(res, 200, { deleted: true })
           return
         }
+      }
+    }
+
+    if (parts[0] === 'api' && parts[1] === 'post-order' && parts.length === 2) {
+      if (method === 'GET') {
+        sendJson(res, 200, await readOrder())
+        return
+      }
+      if (method === 'PUT') {
+        const body = await readJsonBody(req)
+        const order = Array.isArray(body?.order) ? body.order.map(String) : null
+        if (!order)
+          throw httpError(400, 'order 必须是 slug 数组')
+        const valid = order.every(s => SLUG_RE.test(s))
+        if (!valid)
+          throw httpError(400, 'order 数组中包含非法 slug')
+        // 忽略不存在的 slug，避免清单腐化
+        const names = new Set(
+          (await fs.readdir(POSTS_DIR)).filter(f => f.endsWith('.md')).map(f => f.replace(/\.md$/, '')),
+        )
+        const cleaned = [...new Set(order)].filter(s => names.has(s))
+        await fs.writeFile(ORDER_JSON, JSON.stringify(cleaned, null, 2) + '\n', 'utf8')
+        sendJson(res, 200, { saved: true, order: cleaned })
+        return
       }
     }
 

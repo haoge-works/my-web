@@ -1,4 +1,5 @@
 import type { Component } from 'vue'
+import orderJson from './post-order.json'
 
 export interface Post {
   slug: string
@@ -49,24 +50,39 @@ function toTags(value: unknown): string[] {
 const componentModules = import.meta.glob('./posts/*.md', { eager: true })
 const rawModules = import.meta.glob('./posts/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 
-export const posts: Post[] = Object.entries(componentModules)
-  .map(([path, mod]) => {
-    const slug = path.split('/').pop()!.replace(/\.md$/, '')
-    const meta = parseFrontmatter(rawModules[path] ?? '')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const component = ((mod as any).default ?? mod) as Component
-    return {
-      slug,
-      title: String(meta.title ?? slug),
-      date: String(meta.date ?? ''),
-      tags: toTags(meta.tags),
-      summary: String(meta.summary ?? ''),
-      source: String(meta.source ?? ''),
-      component,
-    }
+export const posts: Post[] = (() => {
+  const list = Object.entries(componentModules)
+    .map(([path, mod]) => {
+      const slug = path.split('/').pop()!.replace(/\.md$/, '')
+      const meta = parseFrontmatter(rawModules[path] ?? '')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const component = ((mod as any).default ?? mod) as Component
+      return {
+        slug,
+        title: String(meta.title ?? slug),
+        date: String(meta.date ?? ''),
+        tags: toTags(meta.tags),
+        summary: String(meta.summary ?? ''),
+        source: String(meta.source ?? ''),
+        component,
+      }
+    })
+
+  // 手动排序优先：清单（src/post-order.json）里的文章按清单顺序排最前；
+  // 未登记的文章排其后、保持日期倒序
+  const orderIndex = new Map<string, number>(orderJson.map((slug, i) => [slug, i]))
+  return list.sort((a, b) => {
+    const ia = orderIndex.has(a.slug)
+    const ib = orderIndex.has(b.slug)
+    if (ia && ib)
+      return orderIndex.get(a.slug)! - orderIndex.get(b.slug)!
+    if (ia)
+      return -1
+    if (ib)
+      return 1
+    return b.date.localeCompare(a.date)
   })
-  // 按日期倒序（最新在前）
-  .sort((a, b) => b.date.localeCompare(a.date))
+})()
 
 export function getPost(slug: string): Post | undefined {
   return posts.find(p => p.slug === slug)

@@ -21,6 +21,7 @@ npm run preview
 - Shiki 插件工厂返回 Promise，`vite.config.ts` 里必须 `md.use(await markdownItShiki(...))`——同步调用会直接坏掉。`defaultColor: false` 才有双主题 CSS 变量。
 - `unplugin-vue-markdown` v32 内部用的是 `markdown-exit`（fork），不是 markdown-it；相关依赖版本（vue-router 5 / vite 8 / markdown-it 15）都比较新，查文档时注意版本。
 - `scripts/admin.mjs`（管理面板）有自己独立的 frontmatter 生成/解析实现——**改 `src/posts.ts` 的解析规则时必须两边同步**（比如新增 frontmatter 键、调整数组语法）。站点信息的数据源是 `src/site.json`。
+- 手动排序数据源是 `src/post-order.json`（slug 数组）：站点侧 `src/posts.ts` 与面板 `listPosts()` 各有一份「清单优先、其余日期倒序」的排序实现，**改排序规则也要两边同步**。改 `scripts/admin.mjs` 后必须重启面板进程（Node 不热载）。
 - 代码块深色配色靠 `main.css` 里 `.dark .markdown-body pre` 的 `!important` 覆盖 `--shiki-dark` 变量方案，改动浅色/深色样式时别删这段。
 
 ## 路由与主题
