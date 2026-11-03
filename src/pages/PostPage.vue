@@ -26,6 +26,11 @@ const older = computed(() => (index.value >= 0 && index.value < posts.length - 1
           >#{{ tag }}</RouterLink>
         </span>
       </div>
+      <p v-if="post.source" class="post-source">
+        本文转载自
+        <a :href="post.source" target="_blank" rel="noopener noreferrer">{{ post.source }}</a>
+        ，版权归原作者所有。
+      </p>
     </header>
 
     <component :is="post.component" />

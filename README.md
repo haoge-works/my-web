@@ -24,10 +24,15 @@ title: 文章标题
 date: 2026-11-02
 tags: [技术, 随笔]
 summary: 一句话摘要（可选，列表页会显示）
+source: https://原文链接   （转载文章才写；原创不要写）
 ---
 ```
 
 3. 正文用 Markdown 随便写，保存后开发服务器会自动热更新（新文章需要刷新）
+
+详细写作指南：[docs/images.md](docs/images.md)（添加图片）、[docs/links.md](docs/links.md)（外部链接、站内互链与转载）。
+
+贴图常用方式：把图片放到项目根目录 `public/images/`，在正文中用 `![说明](/images/xxx.png)` 引用——图片随站点部署，永不失效（外链图床也行，但依赖对方网站）。
 
 ## 怎么改个人信息
 

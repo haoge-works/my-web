@@ -346,6 +346,18 @@ a:hover {
   font-size: 0.88em;
 }
 
+.post-source {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-left: 2px solid var(--border);
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.post-source a {
+  word-break: break-all;
+}
+
 .markdown-body {
   font-size: 1em;
 }

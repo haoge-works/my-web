@@ -6,6 +6,8 @@ export interface Post {
   date: string
   tags: string[]
   summary: string
+  /** 转载原文链接（原创文章为空） */
+  source: string
   component: Component
 }
 
@@ -59,6 +61,7 @@ export const posts: Post[] = Object.entries(componentModules)
       date: String(meta.date ?? ''),
       tags: toTags(meta.tags),
       summary: String(meta.summary ?? ''),
+      source: String(meta.source ?? ''),
       component,
     }
   })
