@@ -18,6 +18,7 @@ defineProps<{
       </RouterLink>
       <div class="article-meta">
         <time :datetime="post.date" class="article-date">{{ post.date }}</time>
+        <span class="article-words">{{ post.minutes }} 分钟</span>
         <span v-if="post.tags.length" class="article-tags">
           <RouterLink
             v-for="tag in post.tags"

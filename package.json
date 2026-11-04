@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "admin": "node scripts/admin.mjs",
-    "build": "vite build",
+    "build": "vite build && node scripts/gen-feed.mjs",
     "deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit"

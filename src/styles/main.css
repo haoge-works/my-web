@@ -451,12 +451,143 @@ a:hover {
   overflow-x: auto;
   line-height: 1.6;
   font-size: 0.88em;
+  position: relative;
 }
 
 .markdown-body pre code {
   background: none;
   padding: 0;
   font-size: inherit;
+}
+
+/* 代码块右上角复制按钮 */
+.markdown-body pre .copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.78em;
+  line-height: 1;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.markdown-body pre:hover .copy-btn,
+.markdown-body pre .copy-btn:focus-visible {
+  opacity: 1;
+}
+
+.markdown-body pre .copy-btn:hover {
+  color: var(--fg);
+  border-color: var(--muted);
+}
+
+/* ---------- 文章目录 TOC（宽屏悬浮在正文右侧） ---------- */
+
+.toc {
+  position: fixed;
+  top: 90px;
+  left: calc(50% + 360px + 16px);
+  width: 220px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  font-size: 0.82em;
+  line-height: 1.6;
+}
+
+.toc-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--border);
+}
+
+.toc-item--h2 {
+  margin-top: 2px;
+}
+
+.toc-item--h3 a {
+  padding-left: 14px;
+}
+
+.toc a {
+  display: block;
+  padding: 1px 0 1px 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toc a:hover {
+  color: var(--fg);
+}
+
+.toc-item--active a {
+  color: var(--fg);
+  font-weight: 600;
+  border-left: 2px solid var(--fg);
+  margin-left: -1px;
+}
+
+@media (max-width: 1240px) {
+  .toc {
+    display: none;
+  }
+}
+
+/* ---------- 归档页 ---------- */
+
+.archive-year {
+  font-size: 1.15em;
+  font-weight: 700;
+  margin: 28px 0 4px;
+}
+
+.archive-year:first-child {
+  margin-top: 16px;
+}
+
+.archive-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.archive-item {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.archive-date {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+
+.archive-title {
+  font-size: 0.98em;
+}
+
+.archive-title:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 /* Shiki 双主题：深色模式启用 --shiki-dark 变量 */

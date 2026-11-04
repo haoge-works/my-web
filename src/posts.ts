@@ -9,7 +9,28 @@ export interface Post {
   summary: string
   /** 转载原文链接（原创文章为空） */
   source: string
+  /** 正文字数（不含 frontmatter 与代码块） */
+  words: number
+  /** 预计阅读分钟数 */
+  minutes: number
   component: Component
+}
+
+/** 字数统计 + 阅读时长：CJK 字符按 1 算，其余按空白分词算 */
+function analyzeBody(body: string): { words: number; minutes: number } {
+  const noCode = body
+    .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/~{3}[\s\S]*?~{3}/g, ' ')
+  const cjk = (noCode.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu) ?? []).length
+  const latin = noCode
+    .replace(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean).length
+  const words = cjk + latin
+  // 中文阅读速度约 400 字/分钟，最低算 1 分钟
+  const minutes = Math.max(1, Math.round(words / 400))
+  return { words, minutes }
 }
 
 function parseFrontmatter(raw: string): Record<string, unknown> {
@@ -54,9 +75,11 @@ export const posts: Post[] = (() => {
   const list = Object.entries(componentModules)
     .map(([path, mod]) => {
       const slug = path.split('/').pop()!.replace(/\.md$/, '')
-      const meta = parseFrontmatter(rawModules[path] ?? '')
+      const raw = rawModules[path] ?? ''
+      const meta = parseFrontmatter(raw)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const component = ((mod as any).default ?? mod) as Component
+      const { words, minutes } = analyzeBody(raw)
       return {
         slug,
         title: String(meta.title ?? slug),
@@ -64,9 +87,15 @@ export const posts: Post[] = (() => {
         tags: toTags(meta.tags),
         summary: String(meta.summary ?? ''),
         source: String(meta.source ?? ''),
+        words,
+        minutes,
         component,
+        // 草稿只用于构建期过滤，不进导出列表
+        _draft: String(meta.draft ?? '') === 'true',
       }
     })
+    // frontmatter draft: true 的文章不进站点（草稿机制）
+    .filter(p => !(p as { _draft?: boolean })._draft)
 
   // 手动排序优先：清单（src/post-order.json）里的文章按清单顺序排最前；
   // 未登记的文章排其后、保持日期倒序

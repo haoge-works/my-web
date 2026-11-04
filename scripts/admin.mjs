@@ -71,6 +71,8 @@ function frontmatter(meta) {
     lines.push('summary: ' + yamlString(meta.summary))
   if (meta.source)
     lines.push('source: ' + yamlString(meta.source))
+  if (meta.draft)
+    lines.push('draft: true')
   lines.push('---', '')
   return lines.join('\n')
 }
@@ -155,6 +157,7 @@ async function listPosts() {
       tags: toTags(meta.tags),
       summary: String(meta.summary ?? ''),
       source: String(meta.source ?? ''),
+      draft: String(meta.draft ?? '') === 'true',
     })
   }
   // 与 src/posts.ts 的排序规则保持一致：清单顺序优先，未登记按日期倒序
@@ -183,6 +186,7 @@ function normalizePostInput(body) {
     tags,
     summary: typeof body.summary === 'string' ? body.summary.trim() : '',
     source: typeof body.source === 'string' ? body.source.trim() : '',
+    draft: body.draft === true,
     content: typeof body.content === 'string' ? body.content : '',
   }
 }
@@ -314,6 +318,7 @@ const HTML = `<!doctype html>
         <div><label>转载原文 URL（原创留空）</label><input type="text" id="f-source" /></div>
       </div>
       <label>摘要（列表页显示，可留空）</label><input type="text" id="f-summary" />
+      <label style="display:inline-block;margin-top:8px"><input type="checkbox" id="f-draft" style="vertical-align:middle" /> 草稿（保存为草稿，不会出现在站点上）</label>
       <label>正文（Markdown）</label><textarea id="f-content" class="code"></textarea>
       <p id="post-error" class="err" style="display:none"></p>
       <button class="act" onclick="savePost()">保存</button>
@@ -374,6 +379,7 @@ function refreshPosts() {
       var p = posts[i]
       var tagsHtml = ''
       for (var j = 0; j < p.tags.length; j++) tagsHtml += '#' + esc(p.tags[j]) + ' '
+      if (p.draft) tagsHtml += '<b>草稿</b> '
       if (p.source) tagsHtml += '<span class="muted">转载</span>'
       html += '<tr><td style="white-space:nowrap">'
         + '<button class="mini" onclick="movePost(' + i + ', -1)">▲</button> '
@@ -425,6 +431,7 @@ function newPost() {
   document.getElementById('f-tags').value = ''
   document.getElementById('f-source').value = ''
   document.getElementById('f-summary').value = ''
+  document.getElementById('f-draft').checked = false
   document.getElementById('f-content').value = ''
 }
 
@@ -439,6 +446,7 @@ function openPost(slug) {
       document.getElementById('f-tags').value = (p.tags || []).join(', ')
       document.getElementById('f-source').value = p.source || ''
       document.getElementById('f-summary').value = p.summary || ''
+      document.getElementById('f-draft').checked = p.draft === true
       document.getElementById('f-content').value = p.content || ''
     })
 }
@@ -457,6 +465,7 @@ function gatherPost() {
     tags: document.getElementById('f-tags').value.trim(),
     source: document.getElementById('f-source').value.trim(),
     summary: document.getElementById('f-summary').value.trim(),
+    draft: document.getElementById('f-draft').checked,
     content: document.getElementById('f-content').value,
   }
 }
@@ -589,6 +598,7 @@ async function handler(req, res) {
             tags: toTags(meta.tags),
             summary: String(meta.summary ?? ''),
             source: String(meta.source ?? ''),
+            draft: String(meta.draft ?? '') === 'true',
             content: body,
           })
           return
