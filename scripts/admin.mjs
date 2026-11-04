@@ -1,8 +1,9 @@
 // 本地管理面板：图形化新建/编辑/删除博客文章 + 编辑站点信息
-// 仅绑定 127.0.0.1，不做任何外部暴露；数据全部是文件读写，无数据库
-// 启动：npm run admin  （即可打开 http://127.0.0.1:5174）
+// 监听地址：本机 127.0.0.1 + 自动探测的 Tailscale 虚拟地址（tailnet 内设备可访问）
+// 数据全部是文件读写，无数据库；启动：npm run admin
 import { createServer } from 'node:http'
 import { promises as fs } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -10,8 +11,30 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const POSTS_DIR = path.join(ROOT, 'src', 'posts')
 const SITE_JSON = path.join(ROOT, 'src', 'site.json')
 const ORDER_JSON = path.join(ROOT, 'src', 'post-order.json')
-const HOST = '127.0.0.1'
 const PORT = Number(process.env.ADMIN_PORT || 5174)
+
+/** 自动探测 Tailscale 虚拟地址（适配器名含 tailscale 的第一个非内部 IPv4） */
+function detectTailscaleIP() {
+  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+    if (!/tailscale/i.test(name))
+      continue
+    for (const a of addrs ?? []) {
+      if (a.family === 'IPv4' && !a.internal)
+        return a.address
+    }
+  }
+  return null
+}
+
+// 计算要监听的地址：默认 = 本机 + Tailscale；可用 ADMIN_HOSTS 环境变量逗号分隔覆盖
+function detectHosts() {
+  if (process.env.ADMIN_HOSTS)
+    return process.env.ADMIN_HOSTS.split(',').map(s => s.trim()).filter(Boolean)
+  const tailscale = detectTailscaleIP()
+  return tailscale ? ['127.0.0.1', tailscale] : ['127.0.0.1']
+}
+
+const HOSTS = detectHosts()
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
 
@@ -268,7 +291,7 @@ const HTML = `<!doctype html>
     <button id="tab-posts" class="on" onclick="showTab('posts')">文章</button>
     <button id="tab-site" onclick="showTab('site')">站点信息</button>
   </nav>
-  <span style="margin-left:auto" class="muted">仅本机 127.0.0.1 可访问 · 配合 npm run dev 使用</span>
+  <span style="margin-left:auto" class="muted">仅本机与 tailnet 设备可访问 · 配合 npm run dev 使用</span>
 </header>
 <main>
 
@@ -518,9 +541,11 @@ refreshPosts()
 
 /* ---------- 服务器与路由 ---------- */
 
-const server = createServer(async (req, res) => {
+/* ---------- 服务器与路由 ---------- */
+
+async function handler(req, res) {
   try {
-    const url = new URL(req.url || '/', 'http://127.0.0.1:' + PORT)
+    const url = new URL(req.url || '/', 'http://localhost:' + PORT)
     const parts = url.pathname.split('/').filter(Boolean)
     const method = req.method || 'GET'
 
@@ -634,9 +659,20 @@ const server = createServer(async (req, res) => {
   catch (err) {
     sendJson(res, err.status ?? 500, { error: err.message || '服务器内部错误' })
   }
-})
+}
 
-server.listen(PORT, HOST, () => {
-  console.log('管理面板已启动：http://127.0.0.1:' + PORT)
-  console.log('（仅本机可访问；配合 npm run dev 使用）')
-})
+// 每个监听地址一个 server 实例（Node 的 listen 一次只能绑一个 host），共享同一个 handler
+for (const host of HOSTS) {
+  const server = createServer(handler)
+  server.on('error', (err) => {
+    // Tailscale 地址可能因换网失效，127.0.0.1 失败才是致命问题
+    console.error('监听 ' + host + ':' + PORT + ' 失败：' + err.message)
+  })
+  server.listen(PORT, host, () => {
+    const label = host === '127.0.0.1'
+      ? 'http://127.0.0.1:' + PORT + '（本机）'
+      : 'http://' + host + ':' + PORT + '（tailnet）'
+    console.log('管理面板监听：' + label)
+  })
+}
+console.log('配合 npm run dev 使用；站点在 http://localhost:5173')

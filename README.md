@@ -10,7 +10,7 @@
 ```bash
 npm install      # 安装依赖
 npm run dev      # 本地开发，默认 http://localhost:5173
-npm run admin    # 本地管理面板 http://127.0.0.1:5174（图形化新建/编辑/删除文章与站点信息）
+npm run admin    # 本地管理面板：本机 http://127.0.0.1:5174 + tailnet 设备 http://<tailscale-ip>:5174
 npm run build    # 构建静态文件到 dist/
 npm run preview  # 本地预览构建产物
 npm run typecheck

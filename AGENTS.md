@@ -4,7 +4,7 @@
 
 ```bash
 npm run dev        # 开发服务器 http://localhost:5173
-npm run admin      # 本地管理面板 http://127.0.0.1:5174（仅 127.0.0.1，Node 原生 http 零依赖）
+npm run admin      # 管理面板：127.0.0.1 + 自动探测的 Tailscale 地址（可用 ADMIN_HOSTS 覆盖），端口 5174
 npm run build      # 构建 -> dist/（纯静态）
 npm run typecheck  # vue-tsc --noEmit（这是唯一的质量闸门：没有测试和 lint）
 npm run preview
