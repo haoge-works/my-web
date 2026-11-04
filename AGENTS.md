@@ -6,6 +6,7 @@
 npm run dev        # 开发服务器 http://localhost:5173
 npm run admin      # 管理面板：127.0.0.1 + 自动探测的 Tailscale 地址（可用 ADMIN_HOSTS 覆盖），端口 5174
 npm run build      # 构建 -> dist/（纯静态）
+npm run deploy     # 部署到 ubuntu@100.66.247.91:/var/www/my-web（nginx，tailnet 内 http://100.66.247.91/）
 npm run typecheck  # vue-tsc --noEmit（这是唯一的质量闸门：没有测试和 lint）
 npm run preview
 ```
@@ -22,6 +23,7 @@ npm run preview
 - `unplugin-vue-markdown` v32 内部用的是 `markdown-exit`（fork），不是 markdown-it；相关依赖版本（vue-router 5 / vite 8 / markdown-it 15）都比较新，查文档时注意版本。
 - `scripts/admin.mjs`（管理面板）有自己独立的 frontmatter 生成/解析实现——**改 `src/posts.ts` 的解析规则时必须两边同步**（比如新增 frontmatter 键、调整数组语法）。站点信息的数据源是 `src/site.json`。
 - 手动排序数据源是 `src/post-order.json`（slug 数组）：站点侧 `src/posts.ts` 与面板 `listPosts()` 各有一份「清单优先、其余日期倒序」的排序实现，**改排序规则也要两边同步**。改 `scripts/admin.mjs` 后必须重启面板进程（Node 不热载）。
+- 部署（`scripts/deploy.ps1`）走 Windows 自带 OpenSSH + 私钥在 `ssh-agent` 里（服务开机自动）；密钥带 passphrase，丢 agent 后脚本会失败，重新 `ssh-add` 即可。服务器 sudo 每连接需密码（不交互不走 sudo）；**Windows PowerShell 5.1 的原生命令管道会损坏二进制流，不能用 `tar | ssh` 传 gzip，必须「打包成文件 -> scp -> 远端解压」**；PS 5.1 读无 BOM 的 UTF-8 .ps1 会按 ANSI 解析，脚本含中文须带 BOM 保存。
 - 代码块深色配色靠 `main.css` 里 `.dark .markdown-body pre` 的 `!important` 覆盖 `--shiki-dark` 变量方案，改动浅色/深色样式时别删这段。
 
 ## 路由与主题

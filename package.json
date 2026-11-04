@@ -7,6 +7,7 @@
     "dev": "vite",
     "admin": "node scripts/admin.mjs",
     "build": "vite build",
+    "deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit"
   },

@@ -12,9 +12,18 @@ npm install      # 安装依赖
 npm run dev      # 本地开发，默认 http://localhost:5173
 npm run admin    # 本地管理面板：本机 http://127.0.0.1:5174 + tailnet 设备 http://<tailscale-ip>:5174
 npm run build    # 构建静态文件到 dist/
+npm run deploy   # 一键部署到 Ubuntu 服务器（build -> 上传 -> 验证），详见下方「部署」
 npm run preview  # 本地预览构建产物
 npm run typecheck
 ```
+
+## 部署
+
+`npm run deploy` 把 dist/ 发布到服务器 `ubuntu@100.66.247.91`（Tailscale 内网）的 nginx 站点 `/var/www/my-web`，访问地址 `http://100.66.247.91/`。
+
+- 前提：私钥已加入 Windows `ssh-agent`（服务需为 Running，本机已设为开机自动）
+- nginx 端已配好 SPA fallback（直达/刷新 `/blog/xxx` 正常）与静态资源缓存策略
+- 服务器只跑 nginx 零构建工具；写完文章在本地（面板/dev）确认后跑 deploy 同步
 
 ## 怎么写文章
 
