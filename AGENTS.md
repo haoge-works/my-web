@@ -36,6 +36,8 @@ npm run preview
 - 深色模式 = `html.dark` class + `main.css` 里的 CSS 变量（`:root` / `.dark` 两套 token）。`index.html` 里有防闪烁内联脚本，读 `localStorage` 的 key 固定为 `theme`（`auto|light|dark`）。
 - 个人信息/联系方式的**数据源是 `src/site.json`**（管理面板 `npm run admin` 可图形化编辑），`src/site.ts` 只做类型导出；别在页面组件里散写信息。
 
+- 后台服务（`npm run admin` / `npm run dev`）**agent 不驻留**：只在验证需要时临时启动，任务结束立即按端口（5174/5173）杀进程收尾；需要时由用户自己激活。改 `scripts/admin.mjs` 后的重启同理，由用户自己完成。
+
 ## 环境与 git
 
 - **`src/posts/*.md`（文章）不入 git**（用户要求：仓库只放代码）。文章只存在于本地，`git status` 看不到它们属正常；换克隆环境会失去全部文章，部署类任务前先确认。
