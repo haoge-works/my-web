@@ -1,9 +1,9 @@
 [
-  "deploy-ubuntu",
   "vue3-vite-blog",
   "minimal-typography",
   "hello-world",
   "admin-panel",
+  "deploy-ubuntu",
   "writing-guide",
   "ubuntu-common-commands"
 ]
