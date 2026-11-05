@@ -26,7 +26,7 @@ npm run preview
 - 手动排序数据源是 `src/post-order.json`（slug 数组）：站点侧 `src/posts.ts` 与面板 `listPosts()` 各有一份「清单优先、其余日期倒序」的排序实现，**改排序规则也要两边同步**。改 `scripts/admin.mjs` 后必须重启面板进程（Node 不热载）。
 - 部署（`scripts/deploy.ps1`）走 Windows 自带 OpenSSH + 私钥在 `ssh-agent` 里（服务开机自动）；密钥带 passphrase，丢 agent 后脚本会失败，重新 `ssh-add` 即可。服务器 sudo 每连接需密码（不交互不走 sudo）；**Windows PowerShell 5.1 的原生命令管道会损坏二进制流，不能用 `tar | ssh` 传 gzip，必须「打包成文件 -> scp -> 远端解压」**；PS 5.1 读无 BOM 的 UTF-8 .ps1 会按 ANSI 解析，脚本含中文须带 BOM 保存。
 - 服务器 nginx 配置非发行版默认（压测后手工调优，**nginx 配置不在仓库、未纳入 deploy 脚本**，改要在服务器上手工做）：`listen 80 default_server backlog=8192`（发行版默认 511）、`worker_connections 8192` + 主上下文 `worker_rlimit_nofile 8192`（Ubuntu 26.04 默认均 768）。压测：服务器装了 wrk/ab；**wrk 须 `ulimit -n 65535` 才能真开 5000 连接**，ab 在 ≥5000 并发时自身统计失真（ connect 3983 / 7 万"失败"均为工具自身的锅，非服务器）。实测 5000 并发 22k req/s 全 0 错误。
-- 代码块深色配色靠 `main.css` 里 `.dark .markdown-body pre` 的 `!important` 覆盖 `--shiki-dark` 变量方案，改动浅色/深色样式时别删这段。
+- 代码块配色靠 `.markdown-body pre` 双主题变量映射实现：Shiki 配 `defaultColor: false`（只输出 `--shiki-light`/`--shiki-dark` CSS 变量、不发真实 color），所以 main.css 里必须有「浅色 `color: var(--shiki-light)` + 深色 `.dark` 下 `!important` 映射 `--shiki-dark`」两条规则，删掉任何一边浅色/深色对应模式代码就会失去语法配色。搬站/重构样式时别丢。
 
 ## 路由与主题
 

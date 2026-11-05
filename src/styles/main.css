@@ -325,6 +325,122 @@ a:hover {
   margin-top: 24px;
 }
 
+/* ---------- 项目展示 ---------- */
+
+.project-grid {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+/* 只有一个项目时让卡片铺满整行 */
+.project-grid > .project-card:only-child {
+  grid-column: 1 / -1;
+}
+
+.project-card {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.project-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.project-name {
+  margin: 0;
+  font-size: 1.02em;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.project-status {
+  flex: 0 0 auto;
+  font-size: 0.72em;
+  line-height: 1.4;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* 状态徽章左侧的小圆点：进行中=绿，维护中=琥珀，已完成=默认灰 */
+.project-status::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 5px;
+  background: var(--muted);
+  vertical-align: 1px;
+}
+
+.project-status--active::before {
+  background: #489a5e;
+}
+
+.project-status--maintaining::before {
+  background: #c0a032;
+}
+
+.project-summary {
+  margin: 0;
+  font-size: 0.88em;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.project-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.project-tag {
+  font-size: 0.76em;
+  line-height: 1.4;
+  padding: 1px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.project-links {
+  display: flex;
+  gap: 14px;
+  margin-top: auto;
+  font-size: 0.85em;
+}
+
+.project-links a {
+  color: var(--muted);
+}
+
+.project-links a:hover {
+  color: var(--fg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---------- 文章正文 ---------- */
 
 .post-header {
@@ -588,6 +704,13 @@ a:hover {
 .archive-title:hover {
   text-decoration: underline;
   text-underline-offset: 4px;
+}
+
+/* Shiki 双主题：Shiki 配置 defaultColor: false，只输出 --shiki-light/--shiki-dark 变量，
+   颜色需要在这里映射为真实 color 属性才可见 */
+.markdown-body pre,
+.markdown-body pre * {
+  color: var(--shiki-light);
 }
 
 /* Shiki 双主题：深色模式启用 --shiki-dark 变量 */
