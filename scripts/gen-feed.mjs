@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const POSTS_DIR = path.join(ROOT, 'src', 'posts')
 const DIST = path.join(ROOT, 'dist')
-const SITE_URL = (process.env.SITE_URL || 'http://100.66.247.91').replace(/\/$/, '')
+const SITE_URL = (process.env.SITE_URL || 'https://ubuntu-server.tail0f5897.ts.net').replace(/\/$/, '')
 
 /** 极简 frontmatter 解析：与 posts.ts 同款（键: 值，带引号可以剥掉，数组不认） */
 function parseFrontmatter(pathname) {

@@ -3,7 +3,7 @@
 一个极简风格的个人网站：主页展示自己，附带 Markdown 博客。
 技术栈：**Vue 3 + TypeScript + Vite + Vue Router + unplugin-vue-markdown + Shiki**。
 
-> **注意**：`src/posts/*.md`（文章内容）已加入 `.gitignore`，**不入 git 仓库**。文章只保存在本地，换机器/重新克隆后文章为空，需自行拷贝；如以后改用「GitHub Pages 自动从仓库构建部署」的方案，必须把文章文件重新纳入 git 跟踪。
+> **注意**：`src/posts/*.md`（文章内容）已加入 `.gitignore`，**不入 git 仓库**。文章主要保存在本地，但每次 `npm run deploy` 会把内容快照同步到服务器 `/home/ubuntu/blog-src`（兼作云端备份，多终端编辑时按 mtime 新者胜自动拉回，防丢稿）；重新克隆后跑一次 deploy 即可找回。
 
 ## 快速开始
 
@@ -12,18 +12,31 @@ npm install      # 安装依赖
 npm run dev      # 本地开发，默认 http://localhost:5173
 npm run admin    # 本地管理面板：本机 http://127.0.0.1:5174 + tailnet 设备 http://<tailscale-ip>:5174
 npm run build    # 构建静态文件到 dist/
-npm run deploy   # 一键部署到 Ubuntu 服务器（build -> 上传 -> 验证），详见下方「部署」
+npm run deploy   # 一键三段式部署（拉取服务器内容 -> build -> 双推送 -> 验证），详见下方「部署」
 npm run preview  # 本地预览构建产物
 npm run typecheck
 ```
 
 ## 部署
 
-`npm run deploy` 把 dist/ 发布到服务器 `ubuntu@100.66.247.91`（Tailscale 内网）的 nginx 站点 `/var/www/my-web`，访问地址 `http://100.66.247.91/`。
+`npm run deploy` 是三段式部署，服务器 `ubuntu@100.66.247.91`（Tailscale 内网）：
+
+1. **拉取合并**：先把服务器内容目录 `/home/ubuntu/blog-src`（posts/ + site.json + post-order.json）里「比本机新或本机没有」的文件拉回本机构建（mtime 新者胜，防多终端编辑丢稿）
+2. **构建**：`npm run build`（feed/sitemap/robots 里的绝对地址默认用 `SITE_URL=https://ubuntu-server.tail0f5897.ts.net`，可用环境变量覆盖）
+3. **双推送**：dist 上传 nginx 站点 `/var/www/my-web` + 合并后的内容快照回传 `blog-src`（服务器兼作云端备份）
+4. **验证**：公网首页 + feed.xml 均返回 200
+
+访问地址：
+
+- 公网（Tailscale Funnel，HTTPS，**已配置为后台常驻、服务器重启自动恢复**）：`https://ubuntu-server.tail0f5897.ts.net/`
+- tailnet 内网：`http://100.66.247.91/`
+
+前提与说明：
 
 - 前提：私钥已加入 Windows `ssh-agent`（服务需为 Running，本机已设为开机自动）
 - nginx 端已配好 SPA fallback（直达/刷新 `/blog/xxx` 正常）与静态资源缓存策略
 - 服务器只跑 nginx 零构建工具；写完文章在本地（面板/dev）确认后跑 deploy 同步
+- Funnel 管理：服务器上免 sudo（operator 模式），查看 `tailscale funnel status`，关闭 `tailscale funnel --https=443 off`
 
 ## 怎么写文章
 
@@ -57,7 +70,7 @@ draft: true                （可选：写 true 存为草稿，不上站点；�
 - **上一篇/下一篇**：文章页底部按全站排序衔接
 - **归档页**：`/archives` 按年份排列全部文章
 - **RSS 订阅**：`/feed.xml`（`npm run build` 自动生成，草稿不进订阅）
-- **搜索引擎友好**：`/sitemap.xml` + `/robots.txt`（同上自动生成；站点地址默认 `http://100.66.247.91`，可用环境变量 `SITE_URL` 覆盖）
+- **搜索引擎友好**：`/sitemap.xml` + `/robots.txt`（同上自动生成；站点地址默认 `https://ubuntu-server.tail0f5897.ts.net`，可用环境变量 `SITE_URL` 覆盖）
 
 ## 怎么改个人信息
 

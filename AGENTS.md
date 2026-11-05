@@ -6,7 +6,7 @@
 npm run dev        # 开发服务器 http://localhost:5173
 npm run admin      # 管理面板：127.0.0.1 + 自动探测的 Tailscale 地址（可用 ADMIN_HOSTS 覆盖），端口 5174
 npm run build      # 构建 -> dist/（纯静态）
-npm run deploy     # 部署到 ubuntu@100.66.247.91:/var/www/my-web（nginx，tailnet 内 http://100.66.247.91/）
+npm run deploy     # 三段式部署：拉取服务器内容 -> build -> 双推送（dist + 内容快照），公网 https://ubuntu-server.tail0f5897.ts.net/
 npm run typecheck  # vue-tsc --noEmit（这是唯一的质量闸门：没有测试和 lint）
 npm run preview
 ```
@@ -24,7 +24,9 @@ npm run preview
 - `scripts/admin.mjs`（管理面板）有自己独立的 frontmatter 生成/解析实现；`scripts/gen-feed.mjs`（构建期生成 feed.xml/sitemap.xml，挂在 `npm run build` 末尾）也有第三份极简解析（只认字符串键 title/date/summary/source/draft）——**改 frontmatter 规则时三处同步**（新增键、调整数组语法）。站点信息的数据源是 `src/site.json`。
 - 草稿机制：frontmatter `draft: true` 的文章在站点侧（列表/路由/feed/sitemap）全部隐藏，面板里显示「草稿」标记并可编辑。**但草稿正文仍会编译进构建产物的 JS bundle**（glob 无法按内容过滤）——别把敏感内容写成draft，介意的话写完立刻删除文件。
 - 手动排序数据源是 `src/post-order.json`（slug 数组）：站点侧 `src/posts.ts` 与面板 `listPosts()` 各有一份「清单优先、其余日期倒序」的排序实现，**改排序规则也要两边同步**。改 `scripts/admin.mjs` 后必须重启面板进程（Node 不热载）。
-- 部署（`scripts/deploy.ps1`）走 Windows 自带 OpenSSH + 私钥在 `ssh-agent` 里（服务开机自动）；密钥带 passphrase，丢 agent 后脚本会失败，重新 `ssh-add` 即可。服务器 sudo 每连接需密码（不交互不走 sudo）；**Windows PowerShell 5.1 的原生命令管道会损坏二进制流，不能用 `tar | ssh` 传 gzip，必须「打包成文件 -> scp -> 远端解压」**；PS 5.1 读无 BOM 的 UTF-8 .ps1 会按 ANSI 解析，脚本含中文须带 BOM 保存。
+- 部署（`scripts/deploy.ps1`）是三段式：**①拉取合并 → ②build → ③双推送（dist + 内容快照）→ ④验证**。服务器有内容中转目录 `/home/ubuntu/blog-src`（posts/ + site.json + post-order.json，nginx 站点目录之外），拉取规则只有一条：**mtime 新者胜**（服务器更新或本机没有的文件拉回本机，防多终端编辑丢稿；不搞三方合并）。构建完把合并结果回传快照，服务器内容目录永远 = 最新已发布状态（兼作云端备份）。`SITE_URL` 默认 `https://ubuntu-server.tail0f5897.ts.net`（gen-feed.mjs 读取，可用环境变量覆盖），feed/sitemap/robots 的绝对链接用它。
+- 部署走 Windows 自带 OpenSSH + 私钥在 `ssh-agent` 里（服务开机自动）；密钥带 passphrase，丢 agent 后脚本会失败，重新 `ssh-add` 即可。服务器 sudo 每连接需密码（不交互不走 sudo）；**Windows PowerShell 5.1 的原生命令管道会损坏二进制流，不能用 `tar | ssh` 传 gzip，必须「打包成文件 -> scp -> 远端解压」**；PS 5.1 读无 BOM 的 UTF-8 .ps1 会按 ANSI 解析，脚本含中文须带 BOM 保存。
+- 公网发布靠 `tailscale funnel`（**已配置为后台常驻，重启自动恢复，无需人工干预**）：服务器执行过 `tailscale set --operator=ubuntu`（免 sudo）+ `tailscale funnel --bg --yes 80`（配置落盘 tailscaled，重启存活已验证）。**flag 必须放在位置参数前**（`funnel --bg --yes 80`，写成 `funnel 80 --bg` 会报 invalid argument format）。关闭：`tailscale funnel --https=443 off`；查看：`tailscale funnel status`。注意：开启时会杀掉遗留的前台 `tailscale funnel 80` 终端进程（属预期）。站点同时可走 tailnet `http://100.66.247.91/`（nginx 监听不变）。
 - 服务器 nginx 配置非发行版默认（压测后手工调优，**nginx 配置不在仓库、未纳入 deploy 脚本**，改要在服务器上手工做）：`listen 80 default_server backlog=8192`（发行版默认 511）、`worker_connections 8192` + 主上下文 `worker_rlimit_nofile 8192`（Ubuntu 26.04 默认均 768）。压测：服务器装了 wrk/ab；**wrk 须 `ulimit -n 65535` 才能真开 5000 连接**，ab 在 ≥5000 并发时自身统计失真（ connect 3983 / 7 万"失败"均为工具自身的锅，非服务器）。实测 5000 并发 22k req/s 全 0 错误。
 - 代码块配色靠 `.markdown-body pre` 双主题变量映射实现：Shiki 配 `defaultColor: false`（只输出 `--shiki-light`/`--shiki-dark` CSS 变量、不发真实 color），所以 main.css 里必须有「浅色 `color: var(--shiki-light)` + 深色 `.dark` 下 `!important` 映射 `--shiki-dark`」两条规则，删掉任何一边浅色/深色对应模式代码就会失去语法配色。搬站/重构样式时别丢。
 

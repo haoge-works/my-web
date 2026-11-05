@@ -1,7 +1,14 @@
-﻿# 一键部署：构建 -> tar 管道上传 -> 远端解压覆盖 -> 验证
+﻿# 一键部署（三段式）：拉取合并 -> 构建 -> 双推送 -> 验证
 # 用法：npm run deploy
-# 前提：私钥已加入 Windows ssh-agent（Get-Service ssh-agent 需为 Running）
-# 服务器端约定：nginx 已配置（SPA fallback + 静态缓存），站点目录 /var/www/my-web 属主为 ubuntu
+#
+# 内容同步策略（防多终端编辑丢稿）：
+#   服务器上有独立内容目录 /home/ubuntu/blog-src（posts/ + site.json + post-order.json），
+#   部署前先比对 mtime 把「服务器上比本机新/本机没有」的文件拉回本机构建，
+#   构建完再把合并结果回传快照——服务器内容目录永远 = 最新已发布状态（兼作云端备份）。
+#   冲突规则只有一条：mtime 新者胜（不搞三方合并）。
+#
+# 前提：私钥已加入 Windows ssh-agent（服务需为 Running，本机已设为开机自动）。
+# 站点地址：feed.xml/sitemap.xml 的绝对链接用 SITE_URL（默认 funnel 公网址，可用环境变量覆盖）。
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -9,36 +16,88 @@ Set-Location $repoRoot
 
 # 目标可用环境变量覆盖，方便换机器部署
 $target    = $env:DEPLOY_TARGET ; if (-not $target)    { $target    = 'ubuntu@100.66.247.91' }
-$verifyUrl = $env:DEPLOY_URL    ; if (-not $verifyUrl) { $verifyUrl = 'http://100.66.247.91/' }
-$remoteDir = '/var/www/my-web'
+$verifyUrl = $env:DEPLOY_URL    ; if (-not $verifyUrl) { $verifyUrl = 'https://ubuntu-server.tail0f5897.ts.net/' }
+$remoteDir = '/var/www/my-web'          # nginx 站点目录（构建产物）
+$remoteSrc = '/home/ubuntu/blog-src'    # 内容中转目录（md 源 + 数据 json，不在 nginx 下）
+
+# feed/sitemap/robots 里的绝对地址（构建期 gen-feed.mjs 读取）
+$env:SITE_URL = if ($env:SITE_URL) { $env:SITE_URL } else { 'https://ubuntu-server.tail0f5897.ts.net' }
 
 $winSsh = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
+$winScp = Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe'
 $winTar = Join-Path $env:WINDIR 'System32\tar.exe'
-foreach ($tool in @($winSsh, $winTar)) {
+foreach ($tool in @($winSsh, $winScp, $winTar)) {
   if (-not (Test-Path $tool)) { throw "缺少工具：$tool" }
 }
 
-# 1. 构建（构建失败/产物缺失直接中止）
-Write-Host "[1/3] building (target: $target)..." -ForegroundColor Cyan
+# ---------- 1/5 拉取：服务器比本机新/本机没有的内容 ----------
+Write-Host '[1/5] pulling content from server...' -ForegroundColor Cyan
+
+# 远端清单：每行 "mtime_epoch filename"（站点根与 posts/ 一并列出）
+$listing = & $winSsh -o BatchMode=yes $target ('for f in {0}/posts/*.md {0}/site.json {0}/post-order.json; do if [ -f "$f" ]; then echo "$(stat -c %Y "$f") $(basename "$f")"; fi; done' -f $remoteSrc)
+if ($LASTEXITCODE -ne 0) { throw '读取服务器内容清单失败（检查 ssh-agent：ssh-add -l）' }
+
+$pulled = 0
+foreach ($line in ($listing -split "`n")) {
+  $line = $line.Trim()
+  if ($line -notmatch '^(\d+)\s+(\S+)$') { continue }
+  $remoteTime = [long]$Matches[1]
+  $name = $Matches[2]
+  $isMd = $name -like '*.md'
+  $localPath = if ($isMd) { Join-Path $repoRoot "src\posts\$name" } else { Join-Path $repoRoot "src\$name" }
+  $remotePath = if ($isMd) { "$remoteSrc/posts/$name" } else { "$remoteSrc/$name" }
+
+  $needPull = $false
+  if (-not (Test-Path $localPath)) {
+    $needPull = $true    # 本机没有：其它终端生成的新内容
+  }
+  else {
+    $localTime = [DateTimeOffset]::FromUnixTimeSeconds((Get-Item $localPath).LastWriteTimeUtc.ToUnixTimeSeconds()).ToUnixTimeSeconds()
+    if ($remoteTime -gt $localTime) { $needPull = $true }   # 服务器更新：服务器端修改要保住
+  }
+
+  if ($needPull) {
+    & $winScp -o BatchMode=yes -p "${target}:$remotePath" $localPath
+    if ($LASTEXITCODE -ne 0) { throw "拉取 $name 失败" }
+    Write-Host "  pulled: $name" -ForegroundColor DarkGray
+    $pulled++
+  }
+}
+if ($pulled -eq 0) { Write-Host '  nothing new on server' -ForegroundColor DarkGray }
+else { Write-Host "  pulled $pulled file(s)" }
+
+# ---------- 2/5 构建 ----------
+Write-Host '[2/5] building...' -ForegroundColor Cyan
 & npm run build
 if ($LASTEXITCODE -ne 0) { throw 'build 失败，部署中止' }
 if (-not (Test-Path (Join-Path $repoRoot 'dist\index.html'))) { throw 'dist/index.html 不存在，部署中止' }
 
-# 2. 上传：Windows 自带 tar 打包，ssh 管道直传远端解压（先清目录避免旧文件残留）
-Write-Host '[2/3] uploading...' -ForegroundColor Cyan
-# 注意：不用 PS 管道传二进制（Windows PowerShell 5.1 管道会把 gzip 流当文本转码而损坏），
-# 改为「本地打包成文件 -> scp 上传 -> 远端解压」三步，所有 PowerShell 版本都稳定。
+# ---------- 3/5 上传构建产物 ----------
+Write-Host '[3/5] uploading dist...' -ForegroundColor Cyan
 $bundle = Join-Path $env:TEMP 'my-web-dist.tgz'
 & $winTar -C dist -czf $bundle .
 if ($LASTEXITCODE -ne 0) { throw '本地打包失败' }
-& (Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe') -o BatchMode=yes $bundle "${target}:/tmp/my-web-dist.tgz"
-if ($LASTEXITCODE -ne 0) { throw "scp 上传失败（检查 ssh-agent 是否载入了密钥：ssh-add -l）" }
+& $winScp -o BatchMode=yes $bundle "${target}:/tmp/my-web-dist.tgz"
+if ($LASTEXITCODE -ne 0) { throw "scp 上传失败（检查 ssh-agent：ssh-add -l）" }
 & $winSsh -o BatchMode=yes $target "rm -rf $remoteDir/* && tar -xzf /tmp/my-web-dist.tgz -C $remoteDir && rm -f /tmp/my-web-dist.tgz && echo UPLOAD_OK"
 if ($LASTEXITCODE -ne 0) { throw '远端解压失败' }
 Remove-Item $bundle -Force -ErrorAction SilentlyContinue
 
-# 3. 验证：入口可访问
-Write-Host '[3/3] verifying...' -ForegroundColor Cyan
+# ---------- 4/5 回传内容快照（服务器 = 云端备份） ----------
+Write-Host '[4/5] pushing content snapshot...' -ForegroundColor Cyan
+$srcBundle = Join-Path $env:TEMP 'my-web-src.tgz'
+& $winTar -C src -czf $srcBundle posts site.json post-order.json
+if ($LASTEXITCODE -ne 0) { throw '内容打包失败' }
+& $winScp -o BatchMode=yes $srcBundle "${target}:/tmp/my-web-src.tgz"
+if ($LASTEXITCODE -ne 0) { throw '内容上传失败' }
+& $winSsh -o BatchMode=yes $target "mkdir -p $remoteSrc && rm -rf $remoteSrc/posts && tar -xzf /tmp/my-web-src.tgz -C $remoteSrc && rm -f /tmp/my-web-src.tgz && echo SNAPSHOT_OK"
+if ($LASTEXITCODE -ne 0) { throw '内容快照写入失败' }
+Remove-Item $srcBundle -Force -ErrorAction SilentlyContinue
+
+# ---------- 5/5 验证 ----------
+Write-Host '[5/5] verifying...' -ForegroundColor Cyan
 $resp = Invoke-WebRequest -Uri $verifyUrl -UseBasicParsing -TimeoutSec 20
-if ($resp.StatusCode -ne 200) { throw "部署后验证失败：HTTP $resp.StatusCode" }
-Write-Host "部署完成并通过验证：$verifyUrl (HTTP $($resp.StatusCode))" -ForegroundColor Green
+if ($resp.StatusCode -ne 200) { throw "部署后验证失败：HTTP $($resp.StatusCode)" }
+$feed = Invoke-WebRequest -Uri ($verifyUrl.TrimEnd('/') + '/feed.xml') -UseBasicParsing -TimeoutSec 20
+if ($feed.StatusCode -ne 200) { throw "feed 验证失败：HTTP $($feed.StatusCode)" }
+Write-Host "部署完成并通过验证：$verifyUrl (HTTP $($resp.StatusCode), feed HTTP $($feed.StatusCode))" -ForegroundColor Green
