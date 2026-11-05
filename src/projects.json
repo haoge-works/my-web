@@ -1,0 +1,10 @@
+[
+  {
+    "name": "豪哥的小站",
+    "summary": "Vue 3 + Vite 搭建的个人主页与博客：Markdown 直接编译成 Vue 组件，构建期生成 feed.xml 与 sitemap，配套本地管理面板。",
+    "tags": ["Vue 3", "Vite", "TypeScript", "Markdown"],
+    "status": "active",
+    "repo": "https://github.com/haoge-works",
+    "demo": "http://100.66.247.91/"
+  }
+]

@@ -2,9 +2,12 @@
 import { RouterLink } from 'vue-router'
 import { site } from '../site'
 import { posts } from '../posts'
+import { projects } from '../projects'
 import ArticleList from '../components/ArticleList.vue'
+import ProjectGrid from '../components/ProjectGrid.vue'
 
 const latestPosts = posts.slice(0, 5)
+const showcaseProjects = projects.slice(0, 4)
 </script>
 
 <template>
@@ -18,6 +21,14 @@ const latestPosts = posts.slice(0, 5)
         </a>
       </div>
     </div>
+
+    <section v-if="showcaseProjects.length" class="home-projects">
+      <div class="section-head">
+        <h2 class="section-title">我的项目</h2>
+        <RouterLink to="/projects" class="more-link">全部项目 →</RouterLink>
+      </div>
+      <ProjectGrid :projects="showcaseProjects" />
+    </section>
 
     <section class="home-posts">
       <div class="section-head">

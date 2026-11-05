@@ -11,6 +11,7 @@ import ThemeToggle from './ThemeToggle.vue'
       <nav class="nav" aria-label="主导航">
         <RouterLink to="/" class="nav-link" exact-active-class="nav-link--active">首页</RouterLink>
         <RouterLink to="/blog" class="nav-link" exact-active-class="nav-link--active">博客</RouterLink>
+        <RouterLink to="/projects" class="nav-link" exact-active-class="nav-link--active">项目</RouterLink>
         <RouterLink to="/archives" class="nav-link" exact-active-class="nav-link--active">归档</RouterLink>
         <RouterLink to="/about" class="nav-link" exact-active-class="nav-link--active">关于</RouterLink>
       </nav>
