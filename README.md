@@ -19,8 +19,9 @@ npm run typecheck
 
 ## 部署
 
-`npm run deploy` 是三段式部署，服务器 `ubuntu@100.66.247.91`（Tailscale 内网）：
+`npm run deploy` 是六步部署，服务器 `ubuntu@100.66.247.91`（Tailscale 内网）：
 
+0. **git 闸门**：`fetch` 后检查本机是否落后 `origin/main`，落后则中止——先 `git pull --rebase` 再 deploy（防止旧代码构建覆盖另一终端已部署的新版本）
 1. **拉取合并**：先把服务器内容目录 `/home/ubuntu/blog-src`（posts/ + site.json + post-order.json）里「比本机新或本机没有」的文件拉回本机构建（mtime 新者胜，防多终端编辑丢稿）
 2. **构建**：`npm run build`（feed/sitemap/robots 里的绝对地址默认用 `SITE_URL=https://ubuntu-server.tail0f5897.ts.net`，可用环境变量覆盖）
 3. **双推送**：dist 上传 nginx 站点 `/var/www/my-web` + 合并后的内容快照回传 `blog-src`（服务器兼作云端备份）
@@ -33,7 +34,7 @@ npm run typecheck
 
 前提与说明：
 
-- 前提：私钥已加入 Windows `ssh-agent`（服务需为 Running，本机已设为开机自动）
+- 前提：私钥已加入 Windows `ssh-agent`（服务需为 Running，本机已设为开机自动）；**部署前务必确保代码已提交/推进与远程同步**（闸门会拦截落后的本地代码）
 - nginx 端已配好 SPA fallback（直达/刷新 `/blog/xxx` 正常）与静态资源缓存策略
 - 服务器只跑 nginx 零构建工具；写完文章在本地（面板/dev）确认后跑 deploy 同步
 - Funnel 管理：服务器上免 sudo（operator 模式），查看 `tailscale funnel status`，关闭 `tailscale funnel --https=443 off`
