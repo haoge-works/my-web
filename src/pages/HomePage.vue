@@ -6,7 +6,7 @@ import { projects } from '../projects'
 import ArticleList from '../components/ArticleList.vue'
 import ProjectGrid from '../components/ProjectGrid.vue'
 
-const latestPosts = posts.slice(0, 5)
+const homePosts = posts // 首页全量显示，避免读者错过列表后面的文章
 const showcaseProjects = projects.slice(0, 4)
 </script>
 
@@ -35,7 +35,7 @@ const showcaseProjects = projects.slice(0, 4)
         <h2 class="section-title">最新文章</h2>
         <RouterLink to="/blog" class="more-link">全部文章 →</RouterLink>
       </div>
-      <ArticleList :posts="latestPosts" />
+      <ArticleList :posts="homePosts" />
     </section>
   </section>
 </template>
