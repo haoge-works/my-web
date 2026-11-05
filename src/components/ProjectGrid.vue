@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 import type { Project } from '../projects'
 import { projectStatusLabels } from '../projects'
 
@@ -21,7 +22,11 @@ defineProps<{
       <div v-if="project.tags.length" class="project-tags">
         <span v-for="tag in project.tags" :key="tag" class="project-tag">{{ tag }}</span>
       </div>
-      <div v-if="project.repo || project.demo" class="project-links">
+      <div v-if="project.repo || project.demo || project.case" class="project-links">
+        <RouterLink
+          v-if="project.case"
+          :to="`/projects/${project.case}`"
+        >案例介绍 →</RouterLink>
         <a
           v-if="project.repo"
           :href="project.repo"

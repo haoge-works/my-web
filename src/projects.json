@@ -1,5 +1,13 @@
 [
   {
+    "name": "药品零售经营管理系统",
+    "summary": "符合 GSP 规范的药店全流程管理系统（v2.0）：采购入库到 POS 收银、双人复核、20 位药品追溯、国密医保对接，AGPL-3.0 开源。",
+    "tags": ["Python", "Flask", "MySQL", "SQLAlchemy"],
+    "status": "done",
+    "repo": "https://github.com/haoge-works/wholesale_retail-system",
+    "case": "pharmacy-retail-system"
+  },
+  {
     "name": "豪哥的小站",
     "summary": "Vue 3 + Vite 搭建的个人主页与博客：Markdown 直接编译成 Vue 组件，构建期生成 feed.xml 与 sitemap，配套本地管理面板。",
     "tags": ["Vue 3", "Vite", "TypeScript", "Markdown"],

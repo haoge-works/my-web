@@ -18,7 +18,7 @@ npm run preview
 - 文章 = `src/posts/*.md`，**文件名即 slug**（URL `/blog/<slug>`）。frontmatter 键：`title` / `date` / `tags`（`[a, b]` 列表）/ `summary` / `source`（转载原文 URL，写了文章页自动显示转载标注）。列表按日期倒序，日期写错会打乱排序。
 - 正文**不要再写与 frontmatter title 相同的 `#` 一级标题**——文章页已渲染 `<h1>`，重复了只能删 md 里的。
 - **新增 md 文件不会热更新**，必须手动刷新浏览器；已有文件内容改动会热更新。
-- `src/posts.ts` 对同一份 md 做**两次 glob**：一次编译成组件（渲染）、一次 `?raw` 取原文（手工解析 frontmatter）。改数据层时要两边同步。
+- `src/posts.ts` 对同一份 md 做**两次 glob**：一次编译成组件（渲染）、一次 `?raw` 取原文（手工解析 frontmatter）。改数据层时要两边同步。项目案例集 `src/showcases.ts` + `src/showcases/*.md` 同款两份 glob（共享解析层在 `src/markdown-meta.ts`），改共享解析规则同样要考虑三处同步约定。
 - Shiki 插件工厂返回 Promise，`vite.config.ts` 里必须 `md.use(await markdownItShiki(...))`——同步调用会直接坏掉。`defaultColor: false` 才有双主题 CSS 变量。
 - `unplugin-vue-markdown` v32 内部用的是 `markdown-exit`（fork），不是 markdown-it；相关依赖版本（vue-router 5 / vite 8 / markdown-it 15）都比较新，查文档时注意版本。
 - `scripts/admin.mjs`（管理面板）有自己独立的 frontmatter 生成/解析实现；`scripts/gen-feed.mjs`（构建期生成 feed.xml/sitemap.xml，挂在 `npm run build` 末尾）也有第三份极简解析（只认字符串键 title/date/summary/source/draft）——**改 frontmatter 规则时三处同步**（新增键、调整数组语法）。站点信息的数据源是 `src/site.json`。

@@ -12,6 +12,8 @@ export interface Project {
   repo?: string
   /** 在线预览链接（可选，没有则不展示） */
   demo?: string
+  /** 项目案例页 slug（对应 src/showcases/<case>.md，可选） */
+  case?: string
 }
 
 export const projectStatusLabels: Record<ProjectStatus, string> = {
