@@ -50,8 +50,8 @@ else {
 # ---------- 2/6 拉取：服务器比本机新/本机没有的内容 ----------
 Write-Host '[2/6] pulling content from server...' -ForegroundColor Cyan
 
-# 远端清单：每行 "mtime_epoch filename"（站点根与 posts/ 一并列出）
-$listing = & $winSsh -o BatchMode=yes $target ('for f in {0}/posts/*.md {0}/site.json {0}/post-order.json; do if [ -f "$f" ]; then echo "$(stat -c %Y "$f") $(basename "$f")"; fi; done' -f $remoteSrc)
+# 远端清单：每行 "mtime_epoch 相对路径"（相对 remoteSrc，含目录以区分 posts/showcases）
+$listing = & $winSsh -o BatchMode=yes $target ('cd {0} && for f in posts/*.md showcases/*.md site.json post-order.json; do if [ -f "$f" ]; then echo "$(stat -c %Y "$f") $f"; fi; done' -f $remoteSrc)
 if ($LASTEXITCODE -ne 0) { throw '读取服务器内容清单失败（检查 ssh-agent：ssh-add -l）' }
 
 $pulled = 0
@@ -60,9 +60,9 @@ foreach ($line in ($listing -split "`n")) {
   if ($line -notmatch '^(\d+)\s+(\S+)$') { continue }
   $remoteTime = [long]$Matches[1]
   $name = $Matches[2]
-  $isMd = $name -like '*.md'
-  $localPath = if ($isMd) { Join-Path $repoRoot "src\posts\$name" } else { Join-Path $repoRoot "src\$name" }
-  $remotePath = if ($isMd) { "$remoteSrc/posts/$name" } else { "$remoteSrc/$name" }
+  $relLocal = Join-Path 'src' ($name -replace '/', '\')
+  $localPath = Join-Path $repoRoot $relLocal
+  $remotePath = "$remoteSrc/$name"
 
   $needPull = $false
   if (-not (Test-Path $localPath)) {
@@ -104,11 +104,11 @@ Remove-Item $bundle -Force -ErrorAction SilentlyContinue
 # ---------- 5/6 回传内容快照（服务器 = 云端备份） ----------
 Write-Host '[5/6] pushing content snapshot...' -ForegroundColor Cyan
 $srcBundle = Join-Path $env:TEMP 'my-web-src.tgz'
-& $winTar -C src -czf $srcBundle posts site.json post-order.json
+& $winTar -C src -czf $srcBundle posts showcases site.json post-order.json
 if ($LASTEXITCODE -ne 0) { throw '内容打包失败' }
 & $winScp -o BatchMode=yes $srcBundle "${target}:/tmp/my-web-src.tgz"
 if ($LASTEXITCODE -ne 0) { throw '内容上传失败' }
-& $winSsh -o BatchMode=yes $target "mkdir -p $remoteSrc && rm -rf $remoteSrc/posts && tar -xzf /tmp/my-web-src.tgz -C $remoteSrc && rm -f /tmp/my-web-src.tgz && echo SNAPSHOT_OK"
+& $winSsh -o BatchMode=yes $target "mkdir -p $remoteSrc && rm -rf $remoteSrc/posts $remoteSrc/showcases && tar -xzf /tmp/my-web-src.tgz -C $remoteSrc && rm -f /tmp/my-web-src.tgz && echo SNAPSHOT_OK"
 if ($LASTEXITCODE -ne 0) { throw '内容快照写入失败' }
 Remove-Item $srcBundle -Force -ErrorAction SilentlyContinue
 

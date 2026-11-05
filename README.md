@@ -22,7 +22,7 @@ npm run typecheck
 `npm run deploy` 是六步部署，服务器 `ubuntu@100.66.247.91`（Tailscale 内网）：
 
 0. **git 闸门**：`fetch` 后检查本机是否落后 `origin/main`，落后则中止——先 `git pull --rebase` 再 deploy（防止旧代码构建覆盖另一终端已部署的新版本）
-1. **拉取合并**：先把服务器内容目录 `/home/ubuntu/blog-src`（posts/ + site.json + post-order.json）里「比本机新或本机没有」的文件拉回本机构建（mtime 新者胜，防多终端编辑丢稿）
+1. **拉取合并**：先把服务器内容目录 `/home/ubuntu/blog-src`（posts/ + showcases/ + site.json + post-order.json）里「比本机新或本机没有」的文件拉回本机构建（mtime 新者胜，防多终端编辑丢稿）
 2. **构建**：`npm run build`（feed/sitemap/robots 里的绝对地址默认用 `SITE_URL=https://ubuntu-server.tail0f5897.ts.net`，可用环境变量覆盖）
 3. **双推送**：dist 上传 nginx 站点 `/var/www/my-web` + 合并后的内容快照回传 `blog-src`（服务器兼作云端备份）
 4. **验证**：公网首页 + feed.xml 均返回 200
@@ -60,6 +60,8 @@ draft: true                （可选：写 true 存为草稿，不上站点；�
 3. 正文用 Markdown 随便写，保存后开发服务器会自动热更新（新文章需要刷新）
 
 详细写作指南：[docs/images.md](docs/images.md)（添加图片）、[docs/links.md](docs/links.md)（外部链接、站内互链与转载）。
+
+管理面板（`npm run admin`）支持**图形化编辑两个集合**：「文章」（含草稿、转载标注、手动排序）和「项目」（`/projects` 页的项目案例 md，比文章多一个「项目仓库 repo」字段，按日期倒序）；数据同样走 deploy 的内容同步机制（服务器快照兼备份）。
 
 贴图常用方式：把图片放到项目根目录 `public/images/`，在正文中用 `![说明](/images/xxx.png)` 引用——图片随站点部署，永不失效（外链图床也行，但依赖对方网站）。
 

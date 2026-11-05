@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const POSTS_DIR = path.join(ROOT, 'src', 'posts')
+const SHOWCASES_DIR = path.join(ROOT, 'src', 'showcases')
 const SITE_JSON = path.join(ROOT, 'src', 'site.json')
 const ORDER_JSON = path.join(ROOT, 'src', 'post-order.json')
 const PORT = Number(process.env.ADMIN_PORT || 5174)
@@ -71,6 +72,8 @@ function frontmatter(meta) {
     lines.push('summary: ' + yamlString(meta.summary))
   if (meta.source)
     lines.push('source: ' + yamlString(meta.source))
+  if (meta.repo)
+    lines.push('repo: ' + yamlString(meta.repo))
   if (meta.draft)
     lines.push('draft: true')
   lines.push('---', '')
@@ -119,19 +122,23 @@ function toTags(value) {
 
 /* ---------- 文件读写 ---------- */
 
-function slugToPath(slug) {
+function slugToPathIn(dir, slug) {
   if (!SLUG_RE.test(slug))
     throw httpError(400, 'slug 只允许小写字母、数字和连字符')
-  const file = path.join(POSTS_DIR, slug + '.md')
-  if (path.dirname(file) !== POSTS_DIR)
+  const file = path.join(dir, slug + '.md')
+  if (path.dirname(file) !== dir)
     throw httpError(400, '非法 slug')
   return file
 }
 
-function autoSlug() {
+function slugToPath(slug) {
+  return slugToPathIn(POSTS_DIR, slug)
+}
+
+function autoSlug(prefix = 'post') {
   const d = new Date()
   const p = n => String(n).padStart(2, '0')
-  return 'post-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes())
+  return prefix + '-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes())
 }
 
 async function readOrder() {
@@ -175,6 +182,25 @@ async function listPosts() {
   })
 }
 
+async function listShowcases() {
+  const names = (await fs.readdir(SHOWCASES_DIR)).filter(f => f.endsWith('.md')).sort().reverse()
+  const items = []
+  for (const name of names) {
+    const raw = await fs.readFile(path.join(SHOWCASES_DIR, name), 'utf8')
+    const { meta } = parseFrontmatter(raw)
+    items.push({
+      slug: name.replace(/\.md$/, ''),
+      title: String(meta.title ?? name),
+      date: String(meta.date ?? ''),
+      tags: toTags(meta.tags),
+      summary: String(meta.summary ?? ''),
+      repo: String(meta.repo ?? ''),
+    })
+  }
+  // 与 src/showcases.ts 的排序规则保持一致：仅日期倒序（无手动排序/草稿机制）
+  return items.sort((a, b) => String(b.date).localeCompare(String(a.date)))
+}
+
 function normalizePostInput(body) {
   const title = String(body.title ?? '').trim()
   if (!title)
@@ -187,6 +213,24 @@ function normalizePostInput(body) {
     summary: typeof body.summary === 'string' ? body.summary.trim() : '',
     source: typeof body.source === 'string' ? body.source.trim() : '',
     draft: body.draft === true,
+    content: typeof body.content === 'string' ? body.content : '',
+  }
+}
+
+function normalizeShowcaseInput(body) {
+  const title = String(body.title ?? '').trim()
+  if (!title)
+    throw httpError(400, '标题不能为空')
+  const tags = toTags(body.tags)
+  const repo = typeof body.repo === 'string' ? body.repo.trim() : ''
+  if (repo && !/^https?:\/\//.test(repo))
+    throw httpError(400, 'repo 必须是 http(s) 链接')
+  return {
+    title,
+    date: /^\d{4}-\d{2}-\d{2}$/.test(String(body.date ?? '')) ? String(body.date) : today(),
+    tags,
+    summary: typeof body.summary === 'string' ? body.summary.trim() : '',
+    repo,
     content: typeof body.content === 'string' ? body.content : '',
   }
 }
@@ -293,6 +337,7 @@ const HTML = `<!doctype html>
   <strong>my-web 本地管理面板</strong>
   <nav>
     <button id="tab-posts" class="on" onclick="showTab('posts')">文章</button>
+    <button id="tab-showcases" onclick="showTab('showcases')">项目</button>
     <button id="tab-site" onclick="showTab('site')">站点信息</button>
   </nav>
   <span style="margin-left:auto" class="muted">仅本机与 tailnet 设备可访问 · 配合 npm run dev 使用</span>
@@ -327,6 +372,33 @@ const HTML = `<!doctype html>
     </div>
   </section>
 
+  <section id="view-showcases" style="display:none">
+    <div id="showcase-list">
+      <h2>项目列表 <button class="mini" onclick="newShowcase()">＋ 新建项目</button></h2>
+      <div class="tip">对应 src/showcases/*.md，按日期倒序展示在 /projects。字段比文章多一个「项目仓库 repo」，无草稿与手动排序。</div>
+      <div id="showcase-rows">加载中…</div>
+    </div>
+
+    <div id="showcase-editor" style="display:none">
+      <h2 id="showcase-editor-title">新建项目</h2>
+      <label>标题 *</label><input type="text" id="s2-title" />
+      <div class="row">
+        <div><label>日期</label><input type="text" id="s2-date" placeholder="YYYY-MM-DD，留空为今天" /></div>
+        <div><label>URL slug（小写英文/数字/连字符，留空自动生成）</label><input type="text" id="s2-slug" /></div>
+      </div>
+      <div class="row">
+        <div><label>标签（逗号分隔）</label><input type="text" id="s2-tags" placeholder="Python, Flask" /></div>
+        <div><label>项目仓库 repo URL（无仓库留空）</label><input type="text" id="s2-repo" placeholder="https://github.com/..." /></div>
+      </div>
+      <label>摘要（项目列表页显示，可留空）</label><input type="text" id="s2-summary" />
+      <label>正文（Markdown，项目详情页内容）</label><textarea id="s2-content" class="code"></textarea>
+      <p id="showcase-error" class="err" style="display:none"></p>
+      <button class="act" onclick="saveShowcase()">保存</button>
+      <button class="act ghost" onclick="closeShowcaseEditor()">返回列表</button>
+      <span class="muted" id="edit-showcase-slug"></span>
+    </div>
+  </section>
+
   <section id="view-site" style="display:none">
     <h2>站点信息</h2>
     <div class="tip">对应 src/site.json —— 首页大标题、一句话介绍、关于页、页脚署名都会同步更新。</div>
@@ -345,13 +417,17 @@ const HTML = `<!doctype html>
 
 <script>
 var currentSlug = null
+var currentShowcaseSlug = null
 
 function showTab(name) {
   document.getElementById('view-posts').style.display = name === 'posts' ? '' : 'none'
+  document.getElementById('view-showcases').style.display = name === 'showcases' ? '' : 'none'
   document.getElementById('view-site').style.display = name === 'site' ? '' : 'none'
   document.getElementById('tab-posts').className = name === 'posts' ? 'on' : ''
+  document.getElementById('tab-showcases').className = name === 'showcases' ? 'on' : ''
   document.getElementById('tab-site').className = name === 'site' ? 'on' : ''
   if (name === 'posts') refreshPosts()
+  if (name === 'showcases') refreshShowcases()
   if (name === 'site') loadSite()
 }
 
@@ -490,6 +566,110 @@ function removePost(slug) {
 
 function closeEditor() { refreshPosts() }
 
+/* ---------- 项目（showcases） ---------- */
+
+function refreshShowcases() {
+  document.getElementById('showcase-editor').style.display = 'none'
+  document.getElementById('showcase-list').style.display = ''
+  fetch('/api/showcases').then(function (r) { return r.json() }).then(function (items) {
+    if (!items.length) {
+      document.getElementById('showcase-rows').innerHTML = '<p class="muted">还没有项目，点右上角「＋ 新建项目」。</p>'
+      return
+    }
+    var html = '<table><tr><th>标题</th><th>日期</th><th>标签</th><th>仓库</th><th>操作</th></tr>'
+    for (var i = 0; i < items.length; i++) {
+      var s = items[i]
+      var tagsHtml = ''
+      for (var j = 0; j < s.tags.length; j++) tagsHtml += '#' + esc(s.tags[j]) + ' '
+      var repoHtml = s.repo ? '<a href="' + esc(s.repo) + '" target="_blank" rel="noopener noreferrer">' + esc(s.repo.replace(/^https?:\\/\\//, '')) + '</a>' : ''
+      html += '<tr>'
+        + '<td>' + esc(s.title) + '<div class="muted">/projects/' + esc(s.slug) + '</div></td>'
+        + '<td class="muted">' + esc(s.date) + '</td>'
+        + '<td class="muted">' + tagsHtml + '</td>'
+        + '<td class="muted">' + repoHtml + '</td>'
+        + '<td style="white-space:nowrap">'
+        + '<button class="mini" onclick="openShowcase(\\'' + esc(s.slug) + '\\')">编辑</button> '
+        + '<button class="mini" onclick="removeShowcase(\\'' + esc(s.slug) + '\\')">删除</button>'
+        + '</td></tr>'
+    }
+    html += '</table>'
+    document.getElementById('showcase-rows').innerHTML = html
+  })
+}
+
+function showShowcaseEditor(mode, slug) {
+  document.getElementById('showcase-list').style.display = 'none'
+  document.getElementById('showcase-editor').style.display = ''
+  document.getElementById('showcase-editor-title').textContent = mode === 'new' ? '新建项目' : '编辑项目'
+  document.getElementById('edit-showcase-slug').textContent = slug ? 'slug: ' + slug : ''
+  document.getElementById('showcase-error').style.display = 'none'
+  currentShowcaseSlug = slug || null
+}
+
+function newShowcase() {
+  showShowcaseEditor('new', null)
+  document.getElementById('s2-title').value = ''
+  document.getElementById('s2-date').value = ''
+  document.getElementById('s2-slug').value = ''
+  document.getElementById('s2-tags').value = ''
+  document.getElementById('s2-repo').value = ''
+  document.getElementById('s2-summary').value = ''
+  document.getElementById('s2-content').value = ''
+}
+
+function openShowcase(slug) {
+  fetch('/api/showcases/' + encodeURIComponent(slug))
+    .then(function (r) { return r.json() })
+    .then(function (s) {
+      showShowcaseEditor('edit', s.slug)
+      document.getElementById('s2-title').value = s.title
+      document.getElementById('s2-date').value = s.date
+      document.getElementById('s2-slug').value = s.slug
+      document.getElementById('s2-tags').value = (s.tags || []).join(', ')
+      document.getElementById('s2-repo').value = s.repo || ''
+      document.getElementById('s2-summary').value = s.summary || ''
+      document.getElementById('s2-content').value = s.content || ''
+    })
+}
+
+function showcaseError(msg) {
+  var el = document.getElementById('showcase-error')
+  el.textContent = msg
+  el.style.display = ''
+}
+
+function gatherShowcase() {
+  return {
+    title: document.getElementById('s2-title').value.trim(),
+    date: document.getElementById('s2-date').value.trim(),
+    slug: document.getElementById('s2-slug').value.trim(),
+    tags: document.getElementById('s2-tags').value.trim(),
+    repo: document.getElementById('s2-repo').value.trim(),
+    summary: document.getElementById('s2-summary').value.trim(),
+    content: document.getElementById('s2-content').value,
+  }
+}
+
+function saveShowcase() {
+  var body = gatherShowcase()
+  var req = currentShowcaseSlug
+    ? fetch('/api/showcases/' + encodeURIComponent(currentShowcaseSlug), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    : fetch('/api/showcases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  req.then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j } }) })
+    .then(function (x) {
+      if (x.ok) { refreshShowcases(); return }
+      showcaseError(x.j && x.j.error ? x.j.error : '保存失败')
+    })
+}
+
+function removeShowcase(slug) {
+  if (!confirm('确定删除项目「' + slug + '」？此操作直接删文件，不可撤销。')) return
+  fetch('/api/showcases/' + encodeURIComponent(slug), { method: 'DELETE' })
+    .then(function () { refreshShowcases() })
+}
+
+function closeShowcaseEditor() { refreshShowcases() }
+
 /* ---------- 站点信息 ---------- */
 
 function loadSite() {
@@ -627,6 +807,68 @@ async function handler(req, res) {
         }
       }
     }
+
+      // /api/showcases（项目集合：字段为 repo，无 draft、无手动排序）
+      if (parts[0] === 'api' && parts[1] === 'showcases') {
+        if (parts.length === 2) {
+          if (method === 'GET') {
+            sendJson(res, 200, await listShowcases())
+            return
+          }
+          if (method === 'POST') {
+            const body = await readJsonBody(req)
+            const meta = normalizeShowcaseInput(body)
+            const slug = SLUG_RE.test(String(body.slug ?? '').trim()) ? String(body.slug).trim().toLowerCase() : autoSlug('showcase')
+            const file = slugToPathIn(SHOWCASES_DIR, slug)
+            if (await exists(file))
+              throw httpError(409, 'slug ' + slug + ' 已存在，请换一个')
+            await fs.writeFile(file, buildMarkdown(meta, meta.content), 'utf8')
+            sendJson(res, 201, { slug, saved: true })
+            return
+          }
+        }
+        // /api/showcases/<slug>
+        if (parts.length === 3) {
+          const slug = decodeURIComponent(parts[2])
+          const file = slugToPathIn(SHOWCASES_DIR, slug)
+          if (method === 'GET') {
+            const raw = await fs.readFile(file, 'utf8')
+            const { meta, body } = parseFrontmatter(raw)
+            sendJson(res, 200, {
+              slug,
+              title: String(meta.title ?? slug),
+              date: String(meta.date ?? ''),
+              tags: toTags(meta.tags),
+              summary: String(meta.summary ?? ''),
+              repo: String(meta.repo ?? ''),
+              content: body,
+            })
+            return
+          }
+          if (method === 'PUT') {
+            const body = await readJsonBody(req)
+            const meta = normalizeShowcaseInput(body)
+            if (SLUG_RE.test(String(body.slug ?? '').trim()) && body.slug.trim().toLowerCase() !== slug) {
+              // 改名场景：写新文件，删旧文件
+              const newFile = slugToPathIn(SHOWCASES_DIR, String(body.slug).trim().toLowerCase())
+              if (await exists(newFile))
+                throw httpError(409, 'slug ' + body.slug.trim() + ' 已存在')
+              await fs.writeFile(newFile, buildMarkdown(meta, meta.content), 'utf8')
+              await fs.rm(file)
+            }
+            else {
+              await fs.writeFile(file, buildMarkdown(meta, meta.content), 'utf8')
+            }
+            sendJson(res, 200, { slug: body.slug ? String(body.slug).trim().toLowerCase() : slug, saved: true })
+            return
+          }
+          if (method === 'DELETE') {
+            await fs.rm(file)
+            sendJson(res, 200, { deleted: true })
+            return
+          }
+        }
+      }
 
     if (parts[0] === 'api' && parts[1] === 'post-order' && parts.length === 2) {
       if (method === 'GET') {
