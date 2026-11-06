@@ -112,18 +112,28 @@ a:hover {
   font-weight: 600;
   letter-spacing: 0.02em;
   margin-right: auto;
+  /* 导航横向滚动时品牌与主题按钮保持不压缩、不减宽 */
+  flex-shrink: 0;
 }
 
 .nav {
   display: flex;
   align-items: center;
   gap: 4px;
+  /* 窄屏放不下时横向滑动出更多链接，不换行不撑坏头部（滚动条隐藏） */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-link {
   padding: 4px 10px;
   color: var(--muted);
   border-radius: 6px;
+  white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -151,6 +161,7 @@ a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   transition: border-color 0.15s ease, transform 0.15s ease;
 }
 
@@ -469,10 +480,21 @@ a:hover {
 
 .post-meta {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   align-items: center;
   color: var(--muted);
   font-size: 0.88em;
+}
+
+/* 标签行自身也允许换行（窄屏标签多时不撑出视口；各屏通用规则） */
+.article-tags {
+  display: inline;
+  line-height: 2;
+}
+
+.article-tags .tag {
+  display: inline-block;
 }
 
 .post-source {
@@ -489,6 +511,8 @@ a:hover {
 
 .markdown-body {
   font-size: 1em;
+  /* 兜底：正文里异常宽的元素不再把整页撑出横向滚动（宽表/代码块各自内部滑动） */
+  overflow-x: clip;
 }
 
 .markdown-body h2,
@@ -533,7 +557,9 @@ a:hover {
 }
 
 .markdown-body table {
-  width: 100%;
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
   border-collapse: collapse;
   margin: 1.2em 0;
   font-size: 0.92em;
@@ -557,6 +583,12 @@ a:hover {
   background: var(--code-bg);
   border-radius: 4px;
   padding: 0.15em 0.4em;
+  overflow-wrap: break-word;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
 }
 
 .markdown-body pre {
@@ -565,6 +597,7 @@ a:hover {
   border-radius: 8px;
   padding: 14px 16px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   line-height: 1.6;
   font-size: 0.88em;
   position: relative;
@@ -602,6 +635,13 @@ a:hover {
 .markdown-body pre .copy-btn:hover {
   color: var(--fg);
   border-color: var(--muted);
+}
+
+/* 触屏设备没有 hover：复制按钮常显，否则手机上永远点不到 */
+@media (hover: none) {
+  .markdown-body pre .copy-btn {
+    opacity: 1;
+  }
 }
 
 /* ---------- 文章目录 TOC（宽屏悬浮在正文右侧） ---------- */
@@ -811,11 +851,17 @@ a:hover {
   }
 
   .header-inner {
-    gap: 10px;
+    gap: 8px;
   }
 
+  /* 触控热区：链接加高（~32px），主题按钮加变大号一点好按 */
   .nav-link {
-    padding: 4px 6px;
+    padding: 7px 8px;
+  }
+
+  .theme-toggle {
+    width: 36px;
+    height: 36px;
   }
 
   .post-title {
