@@ -8,8 +8,8 @@
   },
   {
     "name": "药品零售经营管理系统",
-    "summary": "符合 GSP 规范的药店全流程管理系统（v2.0）：采购入库到 POS 收银、双人复核、20 位药品追溯、国密医保对接，AGPL-3.0 开源。",
-    "tags": ["Python", "Flask", "MySQL", "SQLAlchemy"],
+    "summary": "符合 GSP 规范的药店全流程管理系统（v2.0）：采购入库到 POS 收银、双人复核、20 位药品追溯、国密医保对接，创新性融入 AI 用药辅助（云端 API + 本地 llama.cpp 双 Provider），AGPL-3.0 开源。",
+    "tags": ["Python", "Flask", "MySQL", "SQLAlchemy", "LLM"],
     "status": "done",
     "repo": "https://github.com/haoge-works/wholesale_retail-system",
     "case": "pharmacy-retail-system"
