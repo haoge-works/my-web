@@ -1,5 +1,12 @@
 [
   {
+    "name": "高考志愿填报分析预测系统",
+    "summary": "官方公开数据构建三年真实数据集的志愿填报分析系统：概率分布模型驱动冲稳保推荐与录取模拟，数据全程可溯源。数据量庞大且复杂，完整使用体验需接入第三方数据 API 接口。",
+    "tags": ["Python", "FastAPI", "SQLAlchemy", "统计建模"],
+    "status": "maintaining",
+    "case": "college-admission-system"
+  },
+  {
     "name": "药品零售经营管理系统",
     "summary": "符合 GSP 规范的药店全流程管理系统（v2.0）：采购入库到 POS 收银、双人复核、20 位药品追溯、国密医保对接，AGPL-3.0 开源。",
     "tags": ["Python", "Flask", "MySQL", "SQLAlchemy"],
