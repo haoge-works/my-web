@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getPost, posts } from '../posts'
+import { findRelated } from '../related'
+import GiscusComment from '../components/GiscusComment.vue'
 import { useMarkdownBody } from '../composables/useMarkdownBody'
 
 const props = defineProps<{ slug: string }>()
@@ -10,6 +12,9 @@ const post = computed(() => getPost(props.slug))
 const index = computed(() => posts.findIndex(p => p.slug === props.slug))
 const newer = computed(() => (index.value > 0 ? posts[index.value - 1] : undefined)) // 上一篇（更新）
 const older = computed(() => (index.value >= 0 && index.value < posts.length - 1 ? posts[index.value + 1] : undefined)) // 下一篇（更早）
+
+/* 相关文章：tags 交集数排序取前 3，无交集则为空（模板隐藏区块） */
+const related = computed(() => (post.value ? findRelated(post.value, posts, 3) : []))
 
 /* ---------- TOC + 代码复制按钮：与项目案例页共用的 useMarkdownBody ---------- */
 
@@ -66,6 +71,20 @@ const { toc, activeId, scrollToHeading } = useMarkdownBody(() => props.slug, con
       </RouterLink>
       <span v-else />
     </nav>
+
+    <section v-if="related.length" class="related-posts" aria-label="相关文章">
+      <h2 class="related-title">相关文章</h2>
+      <ul class="related-list">
+        <li v-for="r in related" :key="r.slug" class="related-item">
+          <RouterLink :to="`/blog/${r.slug}`">
+            <span class="related-item-title">{{ r.title }}</span>
+            <span class="related-item-meta">{{ r.date }}</span>
+          </RouterLink>
+        </li>
+      </ul>
+    </section>
+
+    <GiscusComment v-if="post" />
 
     <p class="back-link"><RouterLink to="/blog">← 返回文章列表</RouterLink></p>
   </article>

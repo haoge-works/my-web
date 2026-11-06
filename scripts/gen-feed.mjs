@@ -1,6 +1,6 @@
-// 构建期生成静态产物：feed.xml（RSS 订阅）/ sitemap.xml / robots.txt
+// 构建期生成静态产物：feed.xml（RSS 订阅）/ sitemap.xml / robots.txt / search-index.json（站内搜索）
 // 由 `npm run build` 在 vite build 之后调用（见 package.json），零 npm 依赖。
-// frontmatter 解析是第三份「同一套规则」实现（只认字符串键 title/date/summary/source/draft），
+// frontmatter 解析是第三份「同一套规则」实现（只认字符串键 title/date/summary/source/repo/draft/tags 数组），
 // 读 posts 与 showcases 两个目录（showcases 用于 sitemap 收录 /projects 页）；
 // 改 src/posts.ts 或 scripts/admin.mjs 的 frontmatter 规则时必须同步这里。
 import { promises as fs } from 'node:fs'
@@ -13,7 +13,7 @@ const SHOWCASES_DIR = path.join(ROOT, 'src', 'showcases')
 const DIST = path.join(ROOT, 'dist')
 const SITE_URL = (process.env.SITE_URL || 'https://ubuntu-server.tail0f5897.ts.net').replace(/\/$/, '')
 
-/** 极简 frontmatter 解析：与 posts.ts 同款（键: 值，带引号可以剥掉，数组不认） */
+/** 极简 frontmatter 解析：与 posts.ts 同款（键: 值，带引号可以剥掉，数组语法同 posts.ts） */
 function parseFrontmatter(raw) {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(raw)
   const meta = {}
@@ -25,7 +25,17 @@ function parseFrontmatter(raw) {
   return meta
 }
 
-/** 从目录读 md 清单（slug/title/date/summary/draft），posts 与 showcases 共用 */
+/** tags 解析：数组语法或逗号分隔（与 posts.ts 的 toTags 同款） */
+function parseTags(value) {
+  const v = String(value ?? '').trim()
+  if (v.startsWith('[') && v.endsWith(']'))
+    return v.slice(1, -1).split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
+  if (v)
+    return v.split(/[,，]/).map(s => s.trim()).filter(Boolean)
+  return []
+}
+
+/** 从目录读 md 清单（slug/title/date/summary/tags/draft + 正文纯文本），posts 与 showcases 共用 */
 async function readCollection(dir) {
   const names = await fs.readdir(dir)
   return Promise.all(names
@@ -33,14 +43,53 @@ async function readCollection(dir) {
     .map(async (name) => {
       const raw = await fs.readFile(path.join(dir, name), 'utf8')
       const meta = parseFrontmatter(raw)
+      // 保留 raw 供搜索索引用；不再逐字数统计（前端已有同款 analyzeBody）
       return {
         slug: name.replace(/\.md$/, ''),
         title: meta.title ?? name,
         date: meta.date ?? '',
         summary: meta.summary ?? '',
+        tags: parseTags(meta.tags),
         draft: meta.draft === 'true',
+        raw,
       }
     }))
+}
+
+/** 正文 -> 搜索用纯文本：去 frontmatter/代码块/图片/markdown 标记，截断控制索引体积 */
+function extractBodyText(raw) {
+  const MAX_BODY = 3000
+  return raw
+    .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/~{3}[\s\S]*?~{3}/g, ' ')
+    .replace(/`[^`\n]+`/g, ' ')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/^#{1,6}\s+/gm, ' ')
+    .replace(/[*_~#>|]+/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_BODY)
+}
+
+/** 搜索索引：posts + showcases 合并（草稿排除），类型区分文章/项目案例 */
+function buildSearchIndex(posts, showcases) {
+  const entry = (type, doc) => ({
+    type,
+    slug: doc.slug,
+    title: doc.title,
+    summary: doc.summary,
+    tags: doc.tags,
+    date: doc.date,
+    body: extractBodyText(doc.raw),
+  })
+  return [
+    ...posts.map(p => entry('post', p)),
+    ...showcases.map(s => entry('case', s)),
+  ]
 }
 
 function xmlEsc(s) {
@@ -105,13 +154,17 @@ ${paths.map(p => `  <url><loc>${xmlEsc(`${SITE_URL}/${p}`)}</loc><lastmod>${rfc8
 
   const robots = `User-agent: *\nAllow: /\n\nSitemap: ${SITE_URL}/sitemap.xml\n`
 
+  // search-index.json：站内搜索的构建期索引（草稿天然被 posts/showcases 过滤掉）
+  const searchIndex = buildSearchIndex(posts, showcases)
+
   await fs.mkdir(DIST, { recursive: true })
   await Promise.all([
     fs.writeFile(path.join(DIST, 'feed.xml'), feed, 'utf8'),
     fs.writeFile(path.join(DIST, 'sitemap.xml'), sitemap, 'utf8'),
     fs.writeFile(path.join(DIST, 'robots.txt'), robots, 'utf8'),
+    fs.writeFile(path.join(DIST, 'search-index.json'), JSON.stringify(searchIndex), 'utf8'),
   ])
-  console.log(`gen-feed: feed.xml / sitemap.xml / robots.txt -> ${path.relative(ROOT, DIST)}（${posts.length} 篇文章 + ${showcases.length} 个项目）`)
+  console.log(`gen-feed: feed.xml / sitemap.xml / robots.txt / search-index.json -> ${path.relative(ROOT, DIST)}（${posts.length} 篇文章 + ${showcases.length} 个项目，索引 ${searchIndex.length} 条）`)
 }
 
 main().catch((err) => {

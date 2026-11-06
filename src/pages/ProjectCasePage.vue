@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { getShowcase } from '../showcases'
+import { getShowcase, showcases } from '../showcases'
+import { findRelated } from '../related'
+import GiscusComment from '../components/GiscusComment.vue'
 import { useMarkdownBody } from '../composables/useMarkdownBody'
 
 const props = defineProps<{ slug: string }>()
 
 const showcase = computed(() => getShowcase(props.slug))
+
+/* 相关项目:tags 交集数排序取前 3（与其他项目案例页互推） */
+const related = computed(() => (showcase.value ? findRelated(showcase.value, showcases, 3) : []))
 
 /* ---------- TOC + 代码复制按钮：与 PostPage 共用 ---------- */
 const contentBody = ref<HTMLElement>()
@@ -45,6 +50,20 @@ const { toc, activeId, scrollToHeading } = useMarkdownBody(() => props.slug, con
     <div ref="contentBody">
       <component :is="showcase.component" />
     </div>
+
+    <section v-if="related.length" class="related-posts" aria-label="相关项目">
+      <h2 class="related-title">相关项目</h2>
+      <ul class="related-list">
+        <li v-for="r in related" :key="r.slug" class="related-item">
+          <RouterLink :to="`/projects/${r.slug}`">
+            <span class="related-item-title">{{ r.title }}</span>
+            <span class="related-item-meta">{{ r.date }}</span>
+          </RouterLink>
+        </li>
+      </ul>
+    </section>
+
+    <GiscusComment v-if="showcase" />
 
     <p class="back-link"><RouterLink to="/projects">← 返回项目列表</RouterLink></p>
   </article>

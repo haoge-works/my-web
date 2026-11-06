@@ -21,7 +21,7 @@ npm run preview
 - `src/posts.ts` 对同一份 md 做**两次 glob**：一次编译成组件（渲染）、一次 `?raw` 取原文（手工解析 frontmatter）。改数据层时要两边同步。项目案例集 `src/showcases.ts` + `src/showcases/*.md` 同款两份 glob（共享解析层在 `src/markdown-meta.ts`），改共享解析规则同样要考虑三处同步约定。
 - Shiki 插件工厂返回 Promise，`vite.config.ts` 里必须 `md.use(await markdownItShiki(...))`——同步调用会直接坏掉。`defaultColor: false` 才有双主题 CSS 变量。
 - `unplugin-vue-markdown` v32 内部用的是 `markdown-exit`（fork），不是 markdown-it；相关依赖版本（vue-router 5 / vite 8 / markdown-it 15）都比较新，查文档时注意版本。
-- `scripts/admin.mjs`（管理面板）有自己独立的 frontmatter 生成/解析实现，管理**两个集合**：文章（`/api/posts`，含 draft/转载 source/手动排序）与项目 showcases（`/api/showcases`，多一个 repo 字段，无 draft/排序）；`scripts/gen-feed.mjs`（构建期生成 feed.xml/sitemap.xml，挂在 `npm run build` 末尾）也有第三份极简解析（只认字符串键 title/date/summary/source/repo/draft，posts+showcases 两目录都读，sitemap 收录 /projects 页）——**改 frontmatter 规则时三处同步**（新增键、调整数组语法）。站点信息的数据源是 `src/site.json`。
+- `scripts/admin.mjs`（管理面板）有自己独立的 frontmatter 生成/解析实现，管理**两个集合**：文章（`/api/posts`，含 draft/转载 source/手动排序）与项目 showcases（`/api/showcases`，多一个 repo 字段，无 draft/排序）；`scripts/gen-feed.mjs`（构建期生成 feed.xml/sitemap.xml/robots.txt/**search-index.json 站内搜索索引**，挂在 `npm run build` 末尾）也有第三份极简解析（认字符串键 title/date/summary/source/repo/draft + tags 数组，posts+showcases 两目录都读，sitemap 收录 /projects 页）——**改 frontmatter 规则时三处同步**（新增键、调整数组语法）。索引从正文抽纯文本（去 frontmatter/代码块/markdown 标记，截断 3000 字符）并排除 draft；改 `src/posts.ts` 同样要把 index 用到的 tags 数组语法保持一致。站点信息的数据源是 `src/site.json`。
 - 草稿机制：frontmatter `draft: true` 的文章在站点侧（列表/路由/feed/sitemap）全部隐藏，面板里显示「草稿」标记并可编辑。**但草稿正文仍会编译进构建产物的 JS bundle**（glob 无法按内容过滤）——别把敏感内容写成draft，介意的话写完立刻删除文件。
 - 手动排序数据源是 `src/post-order.json`（slug 数组）：站点侧 `src/posts.ts` 与面板 `listPosts()` 各有一份「清单优先、其余日期倒序」的排序实现，**改排序规则也要两边同步**。改 `scripts/admin.mjs` 后必须重启面板进程（Node 不热载）。
 - 部署（`scripts/deploy.ps1`）是六步：**0.git 闸门 → ①拉取合并 → ②build → ③双推送（dist + 内容快照）→ ④验证**。**git 闸门**：先 `git fetch`，若本机落后 `origin/main` 直接中止（防止旧代码构建覆盖另一终端已部署的新版本——发生过：在未合并 showcase 提交的副本上 deploy，线上项目页被抹掉）；fetch 本身失败只警告不拦截。文章内容走 mtime 同步不动，代码版本必须走 git。服务器有内容中转目录 `/home/ubuntu/blog-src`（posts/ + **showcases/** + site.json + post-order.json，nginx 站点目录之外，与面板管理的两个集合一一对应），拉取规则只有一条：**mtime 新者胜**（服务器更新或本机没有的文件拉回本机，防多终端编辑丢稿；不搞三方合并）。构建完把合并结果回传快照，服务器内容目录永远 = 最新已发布状态（兼作云端备份）。`SITE_URL` 默认 `https://ubuntu-server.tail0f5897.ts.net`（gen-feed.mjs 读取，可用环境变量覆盖），feed/sitemap/robots 的绝对链接用它。
@@ -35,6 +35,11 @@ npm run preview
 - `/blog/:slug` 路由**必须 `props: true`**（去掉过，直达/刷新文章页就 404，已修回）。
 - 深色模式 = `html.dark` class + `main.css` 里的 CSS 变量（`:root` / `.dark` 两套 token）。`index.html` 里有防闪烁内联脚本，读 `localStorage` 的 key 固定为 `theme`（`auto|light|dark`）。
 - 个人信息/联系方式的**数据源是 `src/site.json`**（管理面板 `npm run admin` 可图形化编辑），`src/site.ts` 只做类型导出；别在页面组件里散写信息。
+
+- 站内搜索 / 相关推荐 / 评论区：
+  - `SearchModal.vue`（挂在 `App.vue`）收到 `window` 的 `site:search` 事件或全局 **Ctrl/⌘+K** 唤起（头部「搜索」按钮就是派发这个事件，两者松耦合）；索引 `dist/search-index.json` 由 gen-feed 构建后写 dist，**不放 `public/`**（避免重复拷贝），首次打开才 fetch，拉取失败退化为标题/摘要/标签搜索。
+  - `src/related.ts` 的 `findRelated()`（tags 交集数排序、日期 tie-break、默认取 3）被 `PostPage.vue` 与 `ProjectCasePage.vue` 共用，无交集时区块自动隐藏。
+  - `GiscusComment.vue` 评论依赖：仓库公开 + Discussions 开启 + **giscus GitHub App 已安装到仓库**；repoId/categoryId 等配置硬编码在组件里（改配置需重走 https://giscus.app/zh-CN 向导），mapping=pathname、theme 跟随站内深浅模式。
 
 - 后台服务（`npm run admin` / `npm run dev`）**agent 不驻留**：只在验证需要时临时启动，任务结束立即按端口（5174/5173）杀进程收尾；需要时由用户自己激活。改 `scripts/admin.mjs` 后的重启同理，由用户自己完成。
 

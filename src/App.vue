@@ -2,6 +2,7 @@
 import { RouterView } from 'vue-router'
 import SiteHeader from './components/SiteHeader.vue'
 import SiteFooter from './components/SiteFooter.vue'
+import SearchModal from './components/SearchModal.vue'
 </script>
 
 <template>
@@ -11,5 +12,6 @@ import SiteFooter from './components/SiteFooter.vue'
       <RouterView />
     </main>
     <SiteFooter />
+    <SearchModal />
   </div>
 </template>
