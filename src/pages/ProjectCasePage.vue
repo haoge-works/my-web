@@ -25,6 +25,7 @@ const { toc, activeId, scrollToHeading } = useMarkdownBody(() => props.slug, con
       <h1 class="post-title">{{ showcase.title }}</h1>
       <div class="post-meta">
         <time :datetime="showcase.date">{{ showcase.date }}</time>
+        <span v-if="showcase.updated && showcase.updated !== showcase.date" class="post-updated">最后更新 {{ showcase.updated }}</span>
         <span class="post-stats">约 {{ showcase.words }} 字 · {{ showcase.minutes }} 分钟</span>
         <a
           v-if="showcase.repo"

@@ -6,6 +6,8 @@ export interface MarkdownDoc {
   slug: string
   title: string
   date: string
+  /** 最后修订日期（frontmatter updated，可选） */
+  updated: string
   tags: string[]
   summary: string
   words: number
@@ -81,6 +83,7 @@ export function toCollectionDoc<T extends MarkdownDoc>(
       slug,
       title: String(meta.title ?? slug),
       date: String(meta.date ?? ''),
+      updated: String(meta.updated ?? ''),
       tags: toTags(meta.tags),
       summary: String(meta.summary ?? ''),
       words,

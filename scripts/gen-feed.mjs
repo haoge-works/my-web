@@ -1,6 +1,6 @@
 // 构建期生成静态产物：feed.xml（RSS 订阅）/ sitemap.xml / robots.txt / search-index.json（站内搜索）
 // 由 `npm run build` 在 vite build 之后调用（见 package.json），零 npm 依赖。
-// frontmatter 解析是第三份「同一套规则」实现（只认字符串键 title/date/summary/source/repo/draft/tags 数组），
+// frontmatter 解析是第三份「同一套规则」实现（只认字符串键 title/date/summary/source/repo/updated/draft + tags 数组），
 // 读 posts 与 showcases 两个目录（showcases 用于 sitemap 收录 /projects 页）；
 // 改 src/posts.ts 或 scripts/admin.mjs 的 frontmatter 规则时必须同步这里。
 import { promises as fs } from 'node:fs'
@@ -122,7 +122,7 @@ async function main() {
     .sort((a, b) => b.date.localeCompare(a.date))
   const lastModified = [posts[0]?.date, showcases[0]?.date].filter(Boolean).sort().reverse()[0] ?? ''
 
-  const paths = ['', 'blog/', 'archives/', 'projects/', 'about/', ...posts.map(p => `blog/${p.slug}/`), ...showcases.map(s => `projects/${s.slug}/`)]
+  const paths = ['', 'blog/', 'tags/', 'archives/', 'projects/', 'about/', ...posts.map(p => `blog/${p.slug}/`), ...showcases.map(s => `projects/${s.slug}/`)]
 
   /* feed.xml：RSS 2.0 + 自引用 */
   const feed = `<?xml version="1.0" encoding="UTF-8"?>

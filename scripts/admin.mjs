@@ -63,10 +63,22 @@ async function exists(file) {
   }
 }
 
+/** 读文件不存在返回 null（供修订时间比对用，不炸 404） */
+async function readFileOrNull(file) {
+  try {
+    return await fs.readFile(file, 'utf8')
+  }
+  catch {
+    return null
+  }
+}
+
 function frontmatter(meta) {
   const lines = ['---']
   lines.push('title: ' + yamlString(meta.title ?? '未命名'))
   lines.push('date: ' + yamlString(meta.date ?? today()))
+  if (meta.updated)
+    lines.push('updated: ' + yamlString(meta.updated))
   lines.push('tags: ' + yamlList(meta.tags ?? []))
   if (meta.summary)
     lines.push('summary: ' + yamlString(meta.summary))
@@ -161,6 +173,7 @@ async function listPosts() {
       slug: name.replace(/\.md$/, ''),
       title: String(meta.title ?? name),
       date: String(meta.date ?? ''),
+      updated: String(meta.updated ?? ''),
       tags: toTags(meta.tags),
       summary: String(meta.summary ?? ''),
       source: String(meta.source ?? ''),
@@ -215,6 +228,22 @@ function normalizePostInput(body) {
     draft: body.draft === true,
     content: typeof body.content === 'string' ? body.content : '',
   }
+}
+
+/** PUT 编辑时自动维护修订时间：内容/元信息有实际改动才写 updated(=今天)；
+ * prevRaw 为旧文件原文（新建/改名找不到则传 null，新文件不写 updated） */
+function resolveUpdated(prevRaw, meta) {
+  if (prevRaw == null)
+    return ''
+  const prev = parseFrontmatter(prevRaw)
+  const unchanged
+    = String(prev.body) === meta.content
+      && String(prev.meta.title ?? '') === meta.title
+      && String(prev.meta.date ?? '') === meta.date
+      && toTags(prev.meta.tags).join(',') === meta.tags.join(',')
+      && String(prev.meta.summary ?? '') === meta.summary
+      && String(prev.meta.source ?? '') === meta.source
+  return unchanged ? String(prev.meta.updated ?? '') : today()
 }
 
 function normalizeShowcaseInput(body) {
@@ -462,7 +491,7 @@ function refreshPosts() {
         + '<button class="mini" onclick="movePost(' + i + ', 1)">▼</button>'
         + '</td>'
         + '<td>' + esc(p.title) + '<div class="muted">/' + esc(p.slug) + '</div></td>'
-        + '<td class="muted">' + esc(p.date) + '</td>'
+        + '<td class="muted">' + esc(p.date) + (p.updated && p.updated !== p.date ? '<div>修订 ' + esc(p.updated) + '</div>' : '') + '</td>'
         + '<td class="muted">' + tagsHtml + '</td>'
         + '<td style="white-space:nowrap">'
         + '<button class="mini" onclick="openPost(\\'' + esc(p.slug) + '\\')">编辑</button> '
@@ -775,6 +804,7 @@ async function handler(req, res) {
             slug,
             title: String(meta.title ?? slug),
             date: String(meta.date ?? ''),
+            updated: String(meta.updated ?? ''),
             tags: toTags(meta.tags),
             summary: String(meta.summary ?? ''),
             source: String(meta.source ?? ''),
@@ -786,6 +816,8 @@ async function handler(req, res) {
         if (method === 'PUT') {
           const body = await readJsonBody(req)
           const meta = normalizePostInput(body)
+          const prevRaw = await readFileOrNull(file)
+          meta.updated = resolveUpdated(prevRaw, meta)
           if (SLUG_RE.test(String(body.slug ?? '').trim()) && body.slug.trim().toLowerCase() !== slug) {
             // 改名场景：写新文件，删旧文件
             const newFile = slugToPath(String(body.slug).trim().toLowerCase())

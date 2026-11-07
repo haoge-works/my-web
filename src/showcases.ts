@@ -5,6 +5,8 @@ export interface Showcase {
   slug: string
   title: string
   date: string
+  /** 最后修订日期（frontmatter updated，可选） */
+  updated: string
   tags: string[]
   summary: string
   /** 项目 GitHub 仓库（frontmatter repo，可选） */

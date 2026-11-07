@@ -4,7 +4,8 @@ export interface TocItem { id: string; text: string; level: 2 | 3 }
 
 /** 正文扩展（PostPage 与项目案例页共用）：
  * 给渲染后的 .markdown-body 生成 h2/h3 目录（宽屏悬浮，滚动高亮），
- * 并给每个代码块 pre 挂右上角复制按钮。
+ * 给每个代码块 pre 挂右上角复制按钮，
+ * 并给正文图片挂点击放大查看（lightbox，点击/Esc 关闭）。
  * contentTemplate 传页面自己的模板 ref（对应 <div ref="contentBody">），
  * 传入 contentKey（如路由 slug），内容变化时自动重建。 */
 export function useMarkdownBody(contentKey: WatchSource<unknown>, contentTemplate: Ref<HTMLElement | undefined>) {
@@ -79,6 +80,59 @@ export function useMarkdownBody(contentKey: WatchSource<unknown>, contentTemplat
     })
   }
 
+  /* ---------- 图片点击放大（lightbox） ---------- */
+
+  // 覆盖层是全局单例（正文重复渲染时复用），由路由切换/Esc/点击关闭
+  function openLightbox(img: HTMLImageElement): void {
+    let overlay = document.querySelector<HTMLElement>('.img-lightbox')
+    if (!overlay) {
+      overlay = document.createElement('div')
+      overlay.className = 'img-lightbox'
+      overlay.setAttribute('role', 'dialog')
+      overlay.setAttribute('aria-label', '图片查看')
+      const clone = document.createElement('img')
+      clone.className = 'img-lightbox-img'
+      const caption = document.createElement('p')
+      caption.className = 'img-lightbox-caption'
+      overlay.appendChild(clone)
+      overlay.appendChild(caption)
+      overlay.addEventListener('click', closeLightbox)
+      document.body.appendChild(overlay)
+    }
+    const clone = overlay.querySelector('.img-lightbox-img') as HTMLImageElement
+    const caption = overlay.querySelector('.img-lightbox-caption') as HTMLElement
+    // 用当前加载好的资源（含 srcset 实际选中的那张），未加载完成则退回原图
+    clone.src = img.currentSrc || img.src
+    clone.alt = img.alt ?? ''
+    caption.textContent = img.alt ?? ''
+    document.addEventListener('keydown', onLightboxKeydown)
+    overlay.classList.add('img-lightbox--open')
+  }
+
+  function closeLightbox(): void {
+    document.querySelector('.img-lightbox')?.classList.remove('img-lightbox--open')
+    document.removeEventListener('keydown', onLightboxKeydown)
+  }
+
+  function onLightboxKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape')
+      closeLightbox()
+  }
+
+  /* 图片挂放大：data-lightbox 标记防重复挂监听 */
+  function decorateImages(): void {
+    nextTick(() => {
+      contentTemplate.value?.querySelectorAll('img').forEach((img) => {
+        const el = img as HTMLImageElement
+        if (el.dataset.lightbox)
+          return
+        el.dataset.lightbox = '1'
+        el.classList.add('zoomable-img')
+        el.addEventListener('click', () => openLightbox(el))
+      })
+    })
+  }
+
   function onScroll(): void {
     if (!toc.value.length)
       return
@@ -99,6 +153,7 @@ export function useMarkdownBody(contentKey: WatchSource<unknown>, contentTemplat
   function refresh(): void {
     buildToc()
     decorateCodeBlocks()
+    decorateImages()
   }
 
   watch(contentKey, refresh)
@@ -110,6 +165,7 @@ export function useMarkdownBody(contentKey: WatchSource<unknown>, contentTemplat
 
   onBeforeUnmount(() => {
     window.removeEventListener('scroll', onScroll)
+    closeLightbox() // 带着放大的图切页时归位防残留
   })
 
   return { toc, activeId, scrollToHeading }

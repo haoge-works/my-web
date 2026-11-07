@@ -9,6 +9,7 @@ const router = createRouter({
     { path: '/projects/:slug', name: 'project-case', component: () => import('../pages/ProjectCasePage.vue'), props: true },
     { path: '/blog/:slug', name: 'post', component: () => import('../pages/PostPage.vue'), props: true },
     { path: '/archives', name: 'archives', component: () => import('../pages/ArchivePage.vue') },
+    { path: '/tags', name: 'tags', component: () => import('../pages/TagsPage.vue') },
     { path: '/about', name: 'about', component: () => import('../pages/AboutPage.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

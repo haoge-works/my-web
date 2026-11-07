@@ -5,6 +5,8 @@ export interface Post {
   slug: string
   title: string
   date: string
+  /** 最后修订日期（frontmatter updated，面板编辑后有实际改动时自动写入） */
+  updated: string
   tags: string[]
   summary: string
   /** 转载原文链接（原创文章为空） */
@@ -84,6 +86,7 @@ export const posts: Post[] = (() => {
         slug,
         title: String(meta.title ?? slug),
         date: String(meta.date ?? ''),
+        updated: String(meta.updated ?? ''),
         tags: toTags(meta.tags),
         summary: String(meta.summary ?? ''),
         source: String(meta.source ?? ''),

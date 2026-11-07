@@ -1041,6 +1041,83 @@ a:hover {
   flex-shrink: 0;
 }
 
+/* ---------- 文章修订时间 ---------- */
+
+.post-updated {
+  color: var(--muted);
+  font-size: 0.88em;
+}
+
+.post-updated::before {
+  content: '· ';
+  color: var(--border);
+}
+
+/* ---------- 图片点击放大 ---------- */
+
+.zoomable-img {
+  cursor: zoom-in;
+}
+
+.img-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.82);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px;
+  cursor: zoom-out;
+}
+
+.img-lightbox--open {
+  display: flex;
+}
+
+.img-lightbox-img {
+  max-width: 94vw;
+  max-height: 88vh;
+  object-fit: contain;
+  background: var(--card);
+}
+
+.img-lightbox-caption {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  text-align: center;
+  max-width: 90vw;
+}
+
+/* ---------- 标签聚合页 ---------- */
+
+.tag-group {
+  margin-top: 26px;
+}
+
+.tags-heading {
+  font-size: 1.05em;
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.tags-heading a {
+  font-weight: 600;
+}
+
+.tags-count {
+  color: var(--muted);
+  font-size: 0.8em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 8px;
+}
+
 /* ---------- 评论区 ---------- */
 
 .comments {
