@@ -12,7 +12,8 @@ npm install      # 安装依赖
 npm run dev      # 本地开发，默认 http://localhost:5173
 npm run admin    # 本地管理面板：本机 http://127.0.0.1:5174 + tailnet 设备 http://<tailscale-ip>:5174
 npm run build    # 构建静态文件到 dist/
-npm run deploy   # 一键三段式部署（拉取服务器内容 -> build -> 双推送 -> 验证），详见下方「部署」
+npm run deploy   # 一键部署（拉取服务器内容 -> build -> 增量+原子发布 -> 验证），详见下方「部署」
+npm run rollback # 秒级回滚到上一 release（发布仓库机制见下方「部署」）
 npm run preview  # 本地预览构建产物
 npm run typecheck
 ```
@@ -24,8 +25,11 @@ npm run typecheck
 0. **git 闸门**：`fetch` 后检查本机是否落后 `origin/main`，落后则中止——先 `git pull --rebase` 再 deploy（防止旧代码构建覆盖另一终端已部署的新版本）
 1. **拉取合并**：先把服务器内容目录 `/home/ubuntu/blog-src`（posts/ + showcases/ + site.json + post-order.json）里「比本机新或本机没有」的文件拉回本机构建（mtime 新者胜，防多终端编辑丢稿）
 2. **构建**：`npm run build`（feed/sitemap/robots 里的绝对地址默认用 `SITE_URL=https://ubuntu-server.tail0f5897.ts.net`，可用环境变量覆盖）
-3. **双推送**：dist 上传 nginx 站点 `/var/www/my-web` + 合并后的内容快照回传 `blog-src`（posts/ showcases/ site.json post-order.json showcase-order.json，服务器兼作云端备份）
-4. **验证**：公网首页 + feed.xml 均返回 200
+3. **发布（增量 + 原子切换）**：dist 包 + sha256 指纹清单上传 → 服务器侧新 release 以「`cp -al` 硬链接打底 + 变更文件覆盖 + 删除集滞后清理」构建 → `ln -sfn` 原子切换 `current` symlink（线上无开窗），保留最近 3 个 release
+4. **内容快照**：合并后的内容回传 `blog-src`（posts/ showcases/ site.json post-order.json showcase-order.json，服务器兼作云端备份）
+5. **验证**：公网首页 + feed.xml 均返回 200
+
+站点目录里是发布仓库结构：`/var/www/my-web/releases/<版本名>/` + `current` symlink，**nginx root 指向 current**（首次 deploy 为 INIT 迁移，需用户一次性 sudo 切 root，之后永久生效）。`npm run rollback` 把 current 指回上一 release，秒级生效，可连续回滚。
 
 访问地址：
 
