@@ -24,7 +24,7 @@ npm run typecheck
 0. **git 闸门**：`fetch` 后检查本机是否落后 `origin/main`，落后则中止——先 `git pull --rebase` 再 deploy（防止旧代码构建覆盖另一终端已部署的新版本）
 1. **拉取合并**：先把服务器内容目录 `/home/ubuntu/blog-src`（posts/ + showcases/ + site.json + post-order.json）里「比本机新或本机没有」的文件拉回本机构建（mtime 新者胜，防多终端编辑丢稿）
 2. **构建**：`npm run build`（feed/sitemap/robots 里的绝对地址默认用 `SITE_URL=https://ubuntu-server.tail0f5897.ts.net`，可用环境变量覆盖）
-3. **双推送**：dist 上传 nginx 站点 `/var/www/my-web` + 合并后的内容快照回传 `blog-src`（服务器兼作云端备份）
+3. **双推送**：dist 上传 nginx 站点 `/var/www/my-web` + 合并后的内容快照回传 `blog-src`（posts/ showcases/ site.json post-order.json showcase-order.json，服务器兼作云端备份）
 4. **验证**：公网首页 + feed.xml 均返回 200
 
 访问地址：
@@ -56,7 +56,7 @@ draft: true                （可选：写 true 存为草稿，不上站点；�
 ---
 ```
 
-**手动排序**：列表默认日期倒序；想置顶/自定义顺序，在管理面板点文章行的 ▲▼，顺序保存在 `src/post-order.json`（清单内文章按清单排最前，未登记文章在后按日期倒序）。
+**手动排序**：列表默认日期倒序；文章想置顶/自定义顺序，在管理面板点文章行的 ▲▼，顺序保存在 `src/post-order.json`（清单内文章按清单排最前，未登记文章在后按日期倒序）。**项目区同样支持 ▲▼ 手动排序**（面板「项目」页），顺序保存在 `src/showcase-order.json`（按案例 slug 清单，同时影响首页项目区与 /projects 页的卡片顺序；未登记的卡片保持 `projects.json` 文件顺序）。
 
 3. 正文用 Markdown 随便写，保存后开发服务器会自动热更新（新文章需要刷新）
 

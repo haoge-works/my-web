@@ -2,7 +2,7 @@
 # 用法：npm run deploy
 #
 # 内容同步策略（防多终端编辑丢稿）：
-#   服务器上有独立内容目录 /home/ubuntu/blog-src（posts/ + site.json + post-order.json），
+#   服务器上有独立内容目录 /home/ubuntu/blog-src（posts/ + showcases/ + site.json + post-order.json + showcase-order.json），
 #   部署前先比对 mtime 把「服务器上比本机新/本机没有」的文件拉回本机构建，
 #   构建完再把合并结果回传快照——服务器内容目录永远 = 最新已发布状态（兼作云端备份）。
 #   冲突规则只有一条：mtime 新者胜（不搞三方合并）。
@@ -51,7 +51,7 @@ else {
 Write-Host '[2/6] pulling content from server...' -ForegroundColor Cyan
 
 # 远端清单：每行 "mtime_epoch 相对路径"（相对 remoteSrc，含目录以区分 posts/showcases）
-$listing = & $winSsh -o BatchMode=yes $target ('cd {0} && for f in posts/*.md showcases/*.md site.json post-order.json; do if [ -f "$f" ]; then echo "$(stat -c %Y "$f") $f"; fi; done' -f $remoteSrc)
+$listing = & $winSsh -o BatchMode=yes $target ('cd {0} && for f in posts/*.md showcases/*.md site.json post-order.json showcase-order.json; do if [ -f "$f" ]; then echo "$(stat -c %Y "$f") $f"; fi; done' -f $remoteSrc)
 if ($LASTEXITCODE -ne 0) { throw '读取服务器内容清单失败（检查 ssh-agent：ssh-add -l）' }
 
 $pulled = 0
@@ -104,7 +104,7 @@ Remove-Item $bundle -Force -ErrorAction SilentlyContinue
 # ---------- 5/6 回传内容快照（服务器 = 云端备份） ----------
 Write-Host '[5/6] pushing content snapshot...' -ForegroundColor Cyan
 $srcBundle = Join-Path $env:TEMP 'my-web-src.tgz'
-& $winTar -C src -czf $srcBundle posts showcases site.json post-order.json
+& $winTar -C src -czf $srcBundle posts showcases site.json post-order.json showcase-order.json
 if ($LASTEXITCODE -ne 0) { throw '内容打包失败' }
 & $winScp -o BatchMode=yes $srcBundle "${target}:/tmp/my-web-src.tgz"
 if ($LASTEXITCODE -ne 0) { throw '内容上传失败' }

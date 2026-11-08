@@ -12,6 +12,7 @@ const POSTS_DIR = path.join(ROOT, 'src', 'posts')
 const SHOWCASES_DIR = path.join(ROOT, 'src', 'showcases')
 const SITE_JSON = path.join(ROOT, 'src', 'site.json')
 const ORDER_JSON = path.join(ROOT, 'src', 'post-order.json')
+const SHOWCASE_ORDER_JSON = path.join(ROOT, 'src', 'showcase-order.json')
 const PORT = Number(process.env.ADMIN_PORT || 5174)
 
 /** 自动探测 Tailscale 虚拟地址（适配器名含 tailscale 的第一个非内部 IPv4） */
@@ -153,13 +154,28 @@ function autoSlug(prefix = 'post') {
   return prefix + '-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes())
 }
 
-async function readOrder() {
+async function readOrder(file = ORDER_JSON) {
   try {
-    const raw = JSON.parse(await fs.readFile(ORDER_JSON, 'utf8'))
+    const raw = JSON.parse(await fs.readFile(file, 'utf8'))
     return Array.isArray(raw) ? raw.map(String) : []
   }
   catch {
     return []
+  }
+}
+
+/** 「清单优先、其余按原相对顺序（日期倒序）」的比较规则，posts 与 showcases 各套一份清单 */
+function makeOrderAwareCompare(orderIndex) {
+  return (a, b) => {
+    const ia = orderIndex.has(a.slug)
+    const ib = orderIndex.has(b.slug)
+    if (ia && ib)
+      return orderIndex.get(a.slug) - orderIndex.get(b.slug)
+    if (ia)
+      return -1
+    if (ib)
+      return 1
+    return String(b.date).localeCompare(String(a.date))
   }
 }
 
@@ -181,18 +197,8 @@ async function listPosts() {
     })
   }
   // 与 src/posts.ts 的排序规则保持一致：清单顺序优先，未登记按日期倒序
-  const orderIndex = new Map((await readOrder()).map((slug, i) => [slug, i]))
-  return posts.sort((a, b) => {
-    const ia = orderIndex.has(a.slug)
-    const ib = orderIndex.has(b.slug)
-    if (ia && ib)
-      return orderIndex.get(a.slug) - orderIndex.get(b.slug)
-    if (ia)
-      return -1
-    if (ib)
-      return 1
-    return String(b.date).localeCompare(String(a.date))
-  })
+  const orderIndex = new Map((await readOrder(ORDER_JSON)).map((slug, i) => [slug, i]))
+  return posts.sort(makeOrderAwareCompare(orderIndex))
 }
 
 async function listShowcases() {
@@ -210,8 +216,9 @@ async function listShowcases() {
       repo: String(meta.repo ?? ''),
     })
   }
-  // 与 src/showcases.ts 的排序规则保持一致：仅日期倒序（无手动排序/草稿机制）
-  return items.sort((a, b) => String(b.date).localeCompare(String(a.date)))
+  // 与 src/showcases.ts 的排序规则保持一致：清单（showcase-order.json）顺序优先，未登记按日期倒序
+  const orderIndex = new Map((await readOrder(SHOWCASE_ORDER_JSON)).map((slug, i) => [slug, i]))
+  return items.sort(makeOrderAwareCompare(orderIndex))
 }
 
 function normalizePostInput(body) {
@@ -404,7 +411,7 @@ const HTML = `<!doctype html>
   <section id="view-showcases" style="display:none">
     <div id="showcase-list">
       <h2>项目列表 <button class="mini" onclick="newShowcase()">＋ 新建项目</button></h2>
-      <div class="tip">对应 src/showcases/*.md，按日期倒序展示在 /projects。字段比文章多一个「项目仓库 repo」，无草稿与手动排序。</div>
+      <div class="tip">对应 src/showcases/*.md，展示在 /projects。字段比文章多一个「项目仓库 repo」，无草稿机制。▲▼ 手动排序：清单（showcase-order.json）里的项目排最前，未登记项目在后按日期倒序。</div>
       <div id="showcase-rows">加载中…</div>
     </div>
 
@@ -601,17 +608,21 @@ function refreshShowcases() {
   document.getElementById('showcase-editor').style.display = 'none'
   document.getElementById('showcase-list').style.display = ''
   fetch('/api/showcases').then(function (r) { return r.json() }).then(function (items) {
+    showcasesRef = items
     if (!items.length) {
       document.getElementById('showcase-rows').innerHTML = '<p class="muted">还没有项目，点右上角「＋ 新建项目」。</p>'
       return
     }
-    var html = '<table><tr><th>标题</th><th>日期</th><th>标签</th><th>仓库</th><th>操作</th></tr>'
+    var html = '<table><tr><th>顺序</th><th>标题</th><th>日期</th><th>标签</th><th>仓库</th><th>操作</th></tr>'
     for (var i = 0; i < items.length; i++) {
       var s = items[i]
       var tagsHtml = ''
       for (var j = 0; j < s.tags.length; j++) tagsHtml += '#' + esc(s.tags[j]) + ' '
       var repoHtml = s.repo ? '<a href="' + esc(s.repo) + '" target="_blank" rel="noopener noreferrer">' + esc(s.repo.replace(/^https?:\\/\\//, '')) + '</a>' : ''
-      html += '<tr>'
+      html += '<tr><td style="white-space:nowrap">'
+        + '<button class="mini" onclick="moveShowcase(' + i + ', -1)">▲</button> '
+        + '<button class="mini" onclick="moveShowcase(' + i + ', 1)">▼</button>'
+        + '</td>'
         + '<td>' + esc(s.title) + '<div class="muted">/projects/' + esc(s.slug) + '</div></td>'
         + '<td class="muted">' + esc(s.date) + '</td>'
         + '<td class="muted">' + tagsHtml + '</td>'
@@ -624,6 +635,24 @@ function refreshShowcases() {
     html += '</table>'
     document.getElementById('showcase-rows').innerHTML = html
   })
+}
+
+var showcasesRef = []
+
+function moveShowcase(index, dir) {
+  var target = index + dir
+  if (target < 0 || target >= showcasesRef.length)
+    return
+  var swapped = showcasesRef.slice()
+  var tmp = swapped[index]
+  swapped[index] = swapped[target]
+  swapped[target] = tmp
+  fetch('/api/showcase-order', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: swapped.map(function (s) { return s.slug }) }) })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j } }) })
+    .then(function (x) {
+      // 成功与否都重新拉列表，保证与磁盘状态一致
+      refreshShowcases()
+    })
 }
 
 function showShowcaseEditor(mode, slug) {
@@ -904,7 +933,7 @@ async function handler(req, res) {
 
     if (parts[0] === 'api' && parts[1] === 'post-order' && parts.length === 2) {
       if (method === 'GET') {
-        sendJson(res, 200, await readOrder())
+        sendJson(res, 200, await readOrder(ORDER_JSON))
         return
       }
       if (method === 'PUT') {
@@ -921,6 +950,30 @@ async function handler(req, res) {
         )
         const cleaned = [...new Set(order)].filter(s => names.has(s))
         await fs.writeFile(ORDER_JSON, JSON.stringify(cleaned, null, 2) + '\n', 'utf8')
+        sendJson(res, 200, { saved: true, order: cleaned })
+        return
+      }
+    }
+
+    // /api/showcase-order：项目手动排序（与 post-order 同款，文件 src/showcase-order.json）
+    if (parts[0] === 'api' && parts[1] === 'showcase-order' && parts.length === 2) {
+      if (method === 'GET') {
+        sendJson(res, 200, await readOrder(SHOWCASE_ORDER_JSON))
+        return
+      }
+      if (method === 'PUT') {
+        const body = await readJsonBody(req)
+        const order = Array.isArray(body?.order) ? body.order.map(String) : null
+        if (!order)
+          throw httpError(400, 'order 必须是 slug 数组')
+        const valid = order.every(s => SLUG_RE.test(s))
+        if (!valid)
+          throw httpError(400, 'order 数组中包含非法 slug')
+        const names = new Set(
+          (await fs.readdir(SHOWCASES_DIR)).filter(f => f.endsWith('.md')).map(f => f.replace(/\.md$/, '')),
+        )
+        const cleaned = [...new Set(order)].filter(s => names.has(s))
+        await fs.writeFile(SHOWCASE_ORDER_JSON, JSON.stringify(cleaned, null, 2) + '\n', 'utf8')
         sendJson(res, 200, { saved: true, order: cleaned })
         return
       }

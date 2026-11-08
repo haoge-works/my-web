@@ -1,8 +1,8 @@
 ---
 title: "药品零售经营管理系统"
 date: "2026-11-05"
-summary: "符合 GSP 规范的药店全流程管理系统（v2.0）：49 张业务表覆盖采购入库、零售收银与质量管理，双人复核、20 位追溯码、国密医保对接，创新性融入 AI 用药辅助（云端 API + 本地 llama.cpp 双 Provider）。"
 tags: ["Python", "Flask", "MySQL", "GSP", "LLM"]
+summary: "符合 GSP 规范的药店全流程管理系统（v2.0）：49 张业务表覆盖采购入库、零售收银与质量管理，双人复核、20 位追溯码、国密医保对接，创新性融入 AI 用药辅助（云端 API + 本地 llama.cpp 双 Provider）。"
 repo: "https://github.com/haoge-works/wholesale_retail-system"
 ---
 
