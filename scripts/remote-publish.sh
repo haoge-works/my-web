@@ -92,12 +92,16 @@ case "$cmd" in
       mv "$WORK/stage/$f" "$NEW/$f"
     done < "$WORK/chg.lst"
 
-    # 删除集挪进 .trash：延迟真实回收，在途访客由旧 release 的硬链接保护；7 天后清空
+    # 删除集挪进 .trash：延迟真实回收，在途访客由旧 release 的硬链接保护；7 天后清空。
+    # 若同名 trash 遗留（跨 release 重复删除同一文件，其 inode 与源同为硬链接），
+    # mv 会被 GNU 判为同文件拒绝——先断开旧链接再挪。
     if [ -s "$WORK/del.lst" ]; then
       mkdir -p "$TRASH"
       while IFS= read -r f; do
         [ -n "$f" ] || continue
-        mv "$NEW/$f" "$TRASH/$(echo "${f#./}" | tr / _)"
+        dst="$TRASH/$(echo "${f#./}" | tr / _)"
+        rm -f "$dst"
+        mv "$NEW/$f" "$dst"
       done < "$WORK/del.lst"
     fi
 
