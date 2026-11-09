@@ -28,12 +28,12 @@ Set-Location $repoRoot
 
 # 目标可用环境变量覆盖，方便换机器部署
 $target    = $env:DEPLOY_TARGET ; if (-not $target)    { $target    = 'ubuntu@100.66.247.91' }
-$verifyUrl = $env:DEPLOY_URL    ; if (-not $verifyUrl) { $verifyUrl = 'https://ubuntu-server.tail0f5897.ts.net/' }
+$verifyUrl = $env:DEPLOY_URL    ; if (-not $verifyUrl) { $verifyUrl = 'https://hao-ge.tail0f5897.ts.net/' }
 $remoteDir = '/var/www/my-web'          # nginx 站点目录（构建产物）
 $remoteSrc = '/home/ubuntu/blog-src'    # 内容中转目录（md 源 + 数据 json，不在 nginx 下）
 
 # feed/sitemap/robots 里的绝对地址（构建期 gen-feed.mjs 读取）
-$env:SITE_URL = if ($env:SITE_URL) { $env:SITE_URL } else { 'https://ubuntu-server.tail0f5897.ts.net' }
+$env:SITE_URL = if ($env:SITE_URL) { $env:SITE_URL } else { 'https://hao-ge.tail0f5897.ts.net' }
 
 $winSsh = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
 $winScp = Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe'

@@ -24,7 +24,7 @@ npm run typecheck
 
 0. **git 闸门**：`fetch` 后检查本机是否落后 `origin/main`，落后则中止——先 `git pull --rebase` 再 deploy（防止旧代码构建覆盖另一终端已部署的新版本）
 1. **拉取合并**：先把服务器内容目录 `/home/ubuntu/blog-src`（posts/ + showcases/ + site.json + post-order.json）里「比本机新或本机没有」的文件拉回本机构建（mtime 新者胜，防多终端编辑丢稿）
-2. **构建**：`npm run build`（feed/sitemap/robots 里的绝对地址默认用 `SITE_URL=https://ubuntu-server.tail0f5897.ts.net`，可用环境变量覆盖）
+2. **构建**：`npm run build`（feed/sitemap/robots 里的绝对地址默认用 `SITE_URL=https://hao-ge.tail0f5897.ts.net`，可用环境变量覆盖）
 3. **发布（增量 + 原子切换）**：dist 包 + sha256 指纹清单上传 → 服务器侧新 release 以「`cp -al` 硬链接打底 + 变更文件覆盖 + 删除集滞后清理」构建 → `ln -sfn` 原子切换 `current` symlink（线上无开窗），保留最近 3 个 release
 4. **内容快照**：合并后的内容回传 `blog-src`（posts/ showcases/ site.json post-order.json showcase-order.json，服务器兼作云端备份）
 5. **验证**：公网首页 + feed.xml 均返回 200
@@ -33,7 +33,7 @@ npm run typecheck
 
 访问地址：
 
-- 公网（Tailscale Funnel，HTTPS，**已配置为后台常驻、服务器重启自动恢复**）：`https://ubuntu-server.tail0f5897.ts.net/`
+- 公网（Tailscale Funnel，HTTPS，**已配置为后台常驻、服务器重启自动恢复**）：`https://hao-ge.tail0f5897.ts.net/`
 - tailnet 内网：`http://100.66.247.91/`
 
 前提与说明：
@@ -84,7 +84,7 @@ draft: true                （可选：写 true 存为草稿，不上站点；�
 - **评论（giscus）**：文章页与项目案例页底部评论区，走 GitHub Discussions（免后端）；评论即 GitHub 账号登录，深浅模式跟随站点
 - **归档页**：`/archives` 按年份排列全部文章
 - **RSS 订阅**：`/feed.xml`（`npm run build` 自动生成，草稿不进订阅）
-- **搜索引擎友好**：`/sitemap.xml` + `/robots.txt`（同上自动生成；站点地址默认 `https://ubuntu-server.tail0f5897.ts.net`，可用环境变量 `SITE_URL` 覆盖）
+- **搜索引擎友好**：`/sitemap.xml` + `/robots.txt`（同上自动生成；站点地址默认 `https://hao-ge.tail0f5897.ts.net`，可用环境变量 `SITE_URL` 覆盖）
 
 ## 怎么改个人信息
 

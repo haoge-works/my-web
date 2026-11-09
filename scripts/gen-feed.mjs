@@ -11,7 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const POSTS_DIR = path.join(ROOT, 'src', 'posts')
 const SHOWCASES_DIR = path.join(ROOT, 'src', 'showcases')
 const DIST = path.join(ROOT, 'dist')
-const SITE_URL = (process.env.SITE_URL || 'https://ubuntu-server.tail0f5897.ts.net').replace(/\/$/, '')
+const SITE_URL = (process.env.SITE_URL || 'https://hao-ge.tail0f5897.ts.net').replace(/\/$/, '')
 
 /** 极简 frontmatter 解析：与 posts.ts 同款（键: 值，带引号可以剥掉，数组语法同 posts.ts） */
 function parseFrontmatter(raw) {

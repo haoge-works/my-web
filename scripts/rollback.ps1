@@ -6,7 +6,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 
 $target    = $env:DEPLOY_TARGET ; if (-not $target)    { $target    = 'ubuntu@100.66.247.91' }
-$verifyUrl = $env:DEPLOY_URL    ; if (-not $verifyUrl) { $verifyUrl = 'https://ubuntu-server.tail0f5897.ts.net/' }
+$verifyUrl = $env:DEPLOY_URL    ; if (-not $verifyUrl) { $verifyUrl = 'https://hao-ge.tail0f5897.ts.net/' }
 $remoteDir = '/var/www/my-web'
 
 $winSsh = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
