@@ -104,6 +104,14 @@ if (-not (Test-Path (Join-Path $repoRoot 'dist\index.html'))) { throw 'dist/inde
 Write-Host '[4/6] publishing (incremental + atomic switch)...' -ForegroundColor Cyan
 $remotePub = '/tmp/my-web-publish.sh'
 $pubScript = Join-Path $PSScriptRoot 'remote-publish.sh'
+# 仓库里是 LF，但 core.autocrlf=true 的检出会把工作副本转成 CRLF，bash 对 \r 零容忍。
+# scp 前做字节级归一化（只删除 CR 字节，不经文本解码——PS 5.1 读无 BOM UTF-8 会按 ANSI 弄坏中文注释）。
+$pubScriptLf = Join-Path $env:TEMP 'my-web-publish.sh'
+$pubBytes = [IO.File]::ReadAllBytes($pubScript)
+$lfBytes = New-Object System.Collections.Generic.List[byte]
+foreach ($b in $pubBytes) { if ($b -ne 13) { $lfBytes.Add($b) } }
+[IO.File]::WriteAllBytes($pubScriptLf, $lfBytes.ToArray())
+$pubScript = $pubScriptLf
 
 # 4.1 本地生成新构建指纹清单（与服务器 sha256sum 输出同格式：<hash>  ./相对路径）。
 #     必须无 BOM + LF —— 服务器端 awk 按 $1/$2 逐字节 diff，BOM/CRLF 都会算错变更集。
