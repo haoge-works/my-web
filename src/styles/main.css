@@ -704,6 +704,76 @@ a:hover {
   }
 }
 
+/* ---------- 两栏阅读器（P0）：左侧常驻文章索引，正文保持视口居中 ---------- */
+/* 侧栏悬浮在正文左侧留白里，不改变正文列位置——TOC 锚定视口中心的定位原样保留。
+   断点 1200px：正文 680px 居中后左侧留白 ≥260px，容得下 220px 侧栏 + 24px 间隙。 */
+
+.reader-rail {
+  position: fixed;
+  top: 90px;
+  left: calc(50% - 340px - 244px); /* 正文左缘(50%-340px)再往左 244px（220 栏宽 + 24 间隙） */
+  width: 220px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  font-size: 0.82em;
+  line-height: 1.55;
+  display: none; /* 默认隐藏，宽屏媒体查询才显示 */
+}
+
+@media (min-width: 1200px) {
+  .reader-rail {
+    display: block;
+  }
+}
+
+.reader-rail-title {
+  margin: 0 0 8px;
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.reader-rail ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reader-rail li + li {
+  margin-top: 2px;
+}
+
+.reader-rail a {
+  display: block;
+  padding: 5px 10px;
+  border-left: 2px solid transparent;
+  color: var(--muted);
+}
+
+.reader-rail a:hover {
+  color: var(--fg);
+}
+
+.reader-rail-item-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-rail-item-date {
+  display: block;
+  font-size: 0.9em;
+  opacity: 0.75;
+}
+
+.reader-rail a.reader-rail-link--active {
+  color: var(--fg);
+  border-left-color: var(--fg);
+}
+
 /* ---------- 归档页 ---------- */
 
 .archive-year {
