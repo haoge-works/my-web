@@ -735,6 +735,11 @@ a:hover {
   color: var(--muted);
 }
 
+/* 第二个分组（项目）与上一组拉开距离 */
+.reader-rail-title--gap {
+  margin-top: 22px;
+}
+
 .reader-rail ul {
   list-style: none;
   margin: 0;
