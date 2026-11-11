@@ -25,7 +25,7 @@ const { toc, activeId, scrollToHeading } = useMarkdownBody(() => props.slug, con
 <template>
   <article v-if="post">
     <header class="post-header">
-      <p class="post-back"><RouterLink to="/blog">← 返回文章列表</RouterLink></p>
+      <p class="post-back"><RouterLink to="/archives">← 返回归档</RouterLink></p>
       <h1 class="post-title">{{ post.title }}</h1>
       <div class="post-meta">
         <time :datetime="post.date">{{ post.date }}</time>
@@ -35,7 +35,7 @@ const { toc, activeId, scrollToHeading } = useMarkdownBody(() => props.slug, con
           <RouterLink
             v-for="tag in post.tags"
             :key="tag"
-            :to="`/blog?tag=${encodeURIComponent(tag)}`"
+            :to="`/archives?tag=${encodeURIComponent(tag)}`"
             class="tag"
           >#{{ tag }}</RouterLink>
         </span>
@@ -87,11 +87,11 @@ const { toc, activeId, scrollToHeading } = useMarkdownBody(() => props.slug, con
 
     <GiscusComment v-if="post" />
 
-    <p class="back-link"><RouterLink to="/blog">← 返回文章列表</RouterLink></p>
+    <p class="back-link"><RouterLink to="/archives">← 返回归档</RouterLink></p>
   </article>
 
   <section v-else>
     <h1 class="page-title">文章不存在</h1>
-    <p class="empty-hint">没有找到「{{ slug }}」这篇文章，<RouterLink to="/blog">去博客列表看看</RouterLink>。</p>
+    <p class="empty-hint">没有找到「{{ slug }}」这篇文章，<RouterLink to="/archives">去归档看看</RouterLink>。</p>
   </section>
 </template>

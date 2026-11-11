@@ -47,7 +47,7 @@ body {
 
 .container {
   width: 100%;
-  max-width: 680px;
+  max-width: 720px;
   margin: 0 auto;
   padding: 0 20px;
 }
@@ -649,7 +649,7 @@ a:hover {
 .toc {
   position: fixed;
   top: 90px;
-  left: calc(50% + 360px + 16px);
+  left: calc(50% + 380px + 16px); /* 正文容器 720px：内容右缘 50%+360，再留 16px 间隙 */
   width: 220px;
   max-height: calc(100vh - 140px);
   overflow-y: auto;
@@ -704,15 +704,15 @@ a:hover {
   }
 }
 
-/* ---------- 两栏阅读器（P0）：左侧常驻文章索引，正文保持视口居中 ---------- */
-/* 侧栏悬浮在正文左侧留白里，不改变正文列位置——TOC 锚定视口中心的定位原样保留。
-   断点 1200px：正文 680px 居中后左侧留白 ≥260px，容得下 220px 侧栏 + 24px 间隙。 */
+/* ---------- 两栏阅读器：左侧常驻索引栏（项目+文章），正文保持视口居中 ---------- */
+/* 侧栏贴视口最左（邮件客户端式），正文列位置独立不变——TOC 锚定逻辑仅随正文宽度联动。
+   断点 1200px：正文 720px 居中后左侧留白 240px，容得下 200px 侧栏 + 16px 边距（间隙 24px）。 */
 
 .reader-rail {
   position: fixed;
   top: 90px;
-  left: calc(50% - 340px - 244px); /* 正文左缘(50%-340px)再往左 244px（220 栏宽 + 24 间隙） */
-  width: 220px;
+  left: 16px;
+  width: 200px;
   max-height: calc(100vh - 140px);
   overflow-y: auto;
   scrollbar-width: thin;
@@ -735,9 +735,17 @@ a:hover {
   color: var(--muted);
 }
 
-/* 第二个分组（项目）与上一组拉开距离 */
+/* 「文章」组现在是侧栏第二组，与上组（项目）拉开距离 */
 .reader-rail-title--gap {
   margin-top: 22px;
+}
+
+/* 阅读器首页：最新内容头顶的小标签（最新文章/最新项目案例） */
+.latest-kicker {
+  margin: 0 0 10px;
+  font-size: 0.85em;
+  letter-spacing: 0.06em;
+  color: var(--muted);
 }
 
 .reader-rail ul {
