@@ -7,6 +7,11 @@ import ThemeToggle from './ThemeToggle.vue'
 function onSearchClick() {
   window.dispatchEvent(new CustomEvent('site:search'))
 }
+
+/* 唤起/收起移动端目录抽屉（ReaderSidebar 监听 site:reader，松耦合；桌面端侧栏常驻，按钮隐藏） */
+function onReaderClick() {
+  window.dispatchEvent(new CustomEvent('site:reader'))
+}
 </script>
 
 <template>
@@ -21,6 +26,13 @@ function onSearchClick() {
         <RouterLink to="/tags" class="nav-link" exact-active-class="nav-link--active">标签</RouterLink>
         <RouterLink to="/about" class="nav-link" exact-active-class="nav-link--active">关于</RouterLink>
       </nav>
+      <button
+        class="search-btn reader-toggle"
+        type="button"
+        aria-label="文章目录"
+        title="文章与项目目录"
+        @click="onReaderClick"
+      >目录</button>
       <button
         class="search-btn"
         type="button"

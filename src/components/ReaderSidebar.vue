@@ -1,9 +1,43 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { posts } from '../posts'
 import { showcases } from '../showcases'
 
 const route = useRoute()
+
+/* ---------- 移动端目录抽屉 ----------
+   桌面端（≥1200px）rail 常驻，抽屉逻辑不会触发（唤起按钮也是窄屏才显示）；
+   窄屏点击头部「目录」按钮 → site:reader 事件切换开合（与 site:search 同款松耦合），
+   Esc / 点 backdrop / 路由跳转 都会收起。 */
+
+const open = ref(false)
+
+function toggle(): void {
+  open.value = !open.value
+}
+
+function close(): void {
+  open.value = false
+}
+
+function onKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape')
+    close()
+}
+
+// 路由变化（点目录里任一项跳转）自动收起抽屉
+watch(() => route.fullPath, close)
+
+onMounted(() => {
+  window.addEventListener('site:reader', toggle)
+  window.addEventListener('keydown', onKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('site:reader', toggle)
+  window.removeEventListener('keydown', onKeydown)
+})
 
 /* 最新内容 slug：首页显示最新文章或项目案例，/blog 显示最新文章，
    侧栏高亮与中间栏展示内容保持对应。 */
@@ -35,8 +69,16 @@ function isCaseActive(slug: string): boolean {
 </script>
 
 <template>
-  <!-- 全站常驻索引栏：项目 + 文章两组（项目在前），当前项按路由高亮 -->
-  <nav class="reader-rail" aria-label="项目与文章索引">
+  <!-- 移动端抽屉的半透明遮罩：点击任意处关闭（桌面端由 CSS 强制隐藏） -->
+  <div v-if="open" class="reader-drawer-backdrop" @click="close" />
+
+  <!-- 全站常驻索引栏：项目 + 文章两组（项目在前），当前项按路由高亮；
+       窄屏下由 CSS 变为左侧滑入抽屉（reader-rail--open 控制位移） -->
+  <nav
+    class="reader-rail"
+    :class="{ 'reader-rail--open': open }"
+    aria-label="项目与文章索引"
+  >
     <p class="reader-rail-title">项目</p>
     <ul>
       <li v-for="s in showcases" :key="s.slug">

@@ -718,12 +718,66 @@ a:hover {
   scrollbar-width: thin;
   font-size: 0.82em;
   line-height: 1.55;
-  display: none; /* 默认隐藏，宽屏媒体查询才显示 */
+  display: none; /* 默认隐藏，宽屏媒体查询才显示；窄屏在下方媒体查询里变为抽屉 */
 }
 
 @media (min-width: 1200px) {
   .reader-rail {
     display: block;
+  }
+}
+
+/* ---------- 移动端目录抽屉（<1200px）----------
+   桌面 rail 常驻，窄屏同一份索引变成左侧滑入抽屉：头部「目录」按钮唤起
+   （SiteHeader 派发 site:reader），Esc / backdrop / 路由跳转收起。 */
+
+@media (max-width: 1199.98px) {
+  .reader-rail {
+    display: block;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(78vw, 320px);
+    max-height: none;
+    padding: 24px 20px 40px;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%);
+    visibility: hidden; /* 关闭时从无障碍树摘除；开合过渡带 visibility 延迟 */
+    transition: transform 0.22s ease, visibility 0.22s;
+    z-index: 110;
+    font-size: 0.9em;
+  }
+
+  .reader-rail--open {
+    transform: none;
+    visibility: visible;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.12);
+  }
+}
+
+.reader-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 105;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* 桌面端 rail 常驻，遮罩永不显示（防抽屉开着时拉宽窗口残留） */
+@media (min-width: 1200px) {
+  .reader-drawer-backdrop {
+    display: none;
+  }
+}
+
+/* 「目录」唤起按钮：仅窄屏显示（桌面端侧栏常驻，按钮多余） */
+.reader-toggle {
+  display: none;
+}
+
+@media (max-width: 1199.98px) {
+  .reader-toggle {
+    display: inline-block;
   }
 }
 

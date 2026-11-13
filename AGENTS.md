@@ -36,6 +36,7 @@ npm run preview
 ## 路由与主题
 
 - `/blog/:slug` 路由**必须 `props: true`**（去掉过，直达/刷新文章页就 404，已修回）。
+- **两栏阅读器布局**（`App.vue` 常驻 `ReaderSidebar`）：左侧「项目+文章」全站索引 rail 仅 `min-width:1200px` 显示，`/` 与 `/blog` 中间栏渲染最新一篇（`LatestView.vue`），列表职能在归档页——**改页面结构时别丢这个骨架**。窄屏同一份索引变左侧滑入抽屉：头部「目录」按钮（`SiteHeader`，仅窄屏显示）派发 `site:reader` 事件（与 `site:search` 同款松耦合），Esc / backdrop / 路由跳转收起；抽屉样式全部锁在 `max-width:1199.98px` 媒体查询里，桌面零影响。
 - 深色模式 = `html.dark` class + `main.css` 里的 CSS 变量（`:root` / `.dark` 两套 token）。`index.html` 里有防闪烁内联脚本，读 `localStorage` 的 key 固定为 `theme`（`auto|light|dark`）。
 - 个人信息/联系方式的**数据源是 `src/site.json`**（管理面板 `npm run admin` 可图形化编辑），`src/site.ts` 只做类型导出；别在页面组件里散写信息。
 
